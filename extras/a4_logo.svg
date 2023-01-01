@@ -1,0 +1,11 @@
+<!--
+    A4: 210 x 297
+    A5: 148 x 210
+    A6: 105 x 148
+-->
+<svg version="1.1" width="307" height="220" xmlns="http://www.w3.org/2000/svg">
+	<rect x="5" y="5" width="297" height="210" style="fill:transparent;stroke:black;stroke-width:10"/>
+	<line x1="153" y1="5"   x2="153" y2="215"  style="stroke:black;stroke-width:10"/>
+	<line x1="153" y1="110" x2="302" y2="110"  style="stroke:black;stroke-width:10"/>
+	<text x="35" y="130" style="fill:black;font-family:sans-serif;font-size:4em;font-weight:700;">a4</text>
+</svg>

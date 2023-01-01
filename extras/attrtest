@@ -1,0 +1,155 @@
+#!/bin/bash
+
+# Tom Hale, 2016. MIT Licence.
+# Print out 256 colours, with each number printed in its corresponding colour
+# See http://askubuntu.com/questions/821157/print-a-256-color-test-pattern-in-the-terminal/821163#821163
+
+set -eu # Fail on errors or undeclared variables
+
+function usage {
+	echo "Usage: ${0##*/} [-abcgs]"
+    echo "  -a font attributes"
+    echo "  -b 16 basic colors"
+    echo "  -c 256 color cube"
+    echo "  -g 24 shades of gray"
+    echo "  -s 24bit color stripe"
+    exit 1
+}
+
+# Return a colour that contrasts with the given colour
+# Bash only does integer division, so keep it integral
+function contrast_colour {
+    local r g b luminance
+    colour="$1"
+
+    if (( colour < 16 )); then # Initial 16 ANSI colours
+        (( colour == 0 )) && printf "15" || printf "0"
+        return
+    fi
+
+    # Greyscale # rgb_R = rgb_G = rgb_B = (number - 232) * 10 + 8
+    if (( colour > 231 )); then # Greyscale ramp
+        (( colour < 244 )) && printf "15" || printf "0"
+        return
+    fi
+
+    # All other colours:
+    # 6x6x6 colour cube = 16 + 36*R + 6*G + B  # Where RGB are [0..5]
+    # See http://stackoverflow.com/a/27165165/5353461
+
+    # r=$(( (colour-16) / 36 ))
+    g=$(( ((colour-16) % 36) / 6 ))
+    # b=$(( (colour-16) % 6 ))
+
+    # If luminance is bright, print number in black, white otherwise.
+    # Green contributes 587/1000 to human perceived luminance - ITU R-REC-BT.601
+    (( g > 2)) && printf "0" || printf "15"
+    return
+
+    # Uncomment the below for more precise luminance calculations
+
+    # # Calculate percieved brightness
+    # # See https://www.w3.org/TR/AERT#color-contrast
+    # # and http://www.itu.int/rec/R-REC-BT.601
+    # # Luminance is in range 0..5000 as each value is 0..5
+    # luminance=$(( (r * 299) + (g * 587) + (b * 114) ))
+    # (( $luminance > 2500 )) && printf "0" || printf "15"
+}
+
+# Print a coloured block with the number of that colour
+function print_colour {
+    local colour="$1" contrast
+    contrast=$(contrast_colour "$1")
+    printf "\e[48;5;%sm" "$colour"                # Start block of colour
+    printf "\e[38;5;%sm%3d" "$contrast" "$colour" # In contrast, print number
+    printf "\e[0m "                               # Reset colour
+}
+
+# Starting at $1, print a run of $2 colours
+function print_run {
+    local i
+    for (( i = "$1"; i < "$1" + "$2" && i < 256; i++ )) do
+        print_colour "$i"
+    done
+    printf "  "
+}
+
+# Print blocks of colours
+function print_blocks {
+    local start="$1" i
+    local end="$2" # inclusive
+    local block_cols="$3"
+    local block_rows="$4"
+    local blocks_per_line="$5"
+    local block_length=$((block_cols * block_rows))
+
+    # Print sets of blocks
+    for (( i = start; i <= end; i += (blocks_per_line-1) * block_length )) do
+        [[ $i = $start ]] || printf "\n" # Space between sets of blocks
+        # For each block row
+        for (( row = 0; row < block_rows; row++ )) do
+            # Print block columns for all blocks on the line
+            for (( block = 0; block < blocks_per_line; block++ )) do
+                print_run $(( i + (block * block_length) )) "$block_cols"
+            done
+            (( i += block_cols )) # Prepare to print the next row
+            printf "\n"
+        done
+    done
+}
+
+function print_rgb8_stripe {
+    awk 'BEGIN{
+        s="/\\/\\/\\/\\/\\"; s=s s s s s s s s;
+        for (colnum = 0; colnum<77; colnum++) {
+            r = 255-(colnum*255/76);
+            g = (colnum*510/76);
+            b = (colnum*255/76);
+            if (g>255) g = 510-g;
+            printf "\033[48;2;%d;%d;%dm", b,g,r;
+            printf "\033[38;2;%d;%d;%dm", 255-b,255-g,255-r;
+            printf "%s\033[0m", substr(s,colnum+1,1);
+        }
+        printf "\n";
+    }'
+}
+
+function print_attrs {
+    printf "\e[1mbold	\e[3mand italic\e[0m	"
+    printf "\e[3mitalic	\e[9mand strike\e[0m	"
+    printf "\e[9mstrike	\e[4mand under\e[0m\n"
+
+    printf "\e[4munder	\e[7mand reverse\e[0m	"
+    printf "\e[7mreverse	\e[21mand double\e[0m	"
+    printf "\e[21mdouble	\e[5mand blink\e[0m\n"
+
+    printf "\e[1m\e[3m\e[9mbold italic strike\e[0m\n"
+}
+
+while getopts ":bcgsa" o; do
+    case $o in
+        a)  print_attrs
+            ;;
+        b)  print_run 0 16
+            printf "\n"
+            ;;
+        c)  print_blocks 16 231 6 6 3
+            ;;
+        g)  print_blocks 232 255 12 2 1
+            ;;
+        s)  print_rgb8_stripe
+            ;;
+        \?) usage
+    esac
+done
+[[ $OPTIND > 1 ]] && exit 0
+
+print_run 0 16 # The first 16 colours are spread over the whole spectrum
+printf "\n\n"
+print_blocks 16 231 6 6 3 # 6x6x6 colour cube between 16 and 231 inclusive
+printf "\n"
+print_blocks 232 255 12 2 1 # Not 50, but 24 Shades of Grey
+printf "\n"
+print_rgb8_stripe
+printf "\n"
+print_attrs

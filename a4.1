@@ -1,0 +1,634 @@
+.TH A4 1 a4\-VERSION
+.SH NAME
+a4 \- a dynamic terminal manager
+.SH SYNOPSIS
+.B a4
+.RB [ \-h | \-? "] [" \-i " file] [" \-s "] [" \-v ]
+.hw truecolor
+.SH DESCRIPTION
+.B a4
+is a dynamic terminal window manager. One of eight tiling layouts is dynamically applied to all visible terminals.
+The terminal windows are grouped by tags making it easy to visually switch between contexts of work.
+Color schemes are dynamically applied to each terminal window, based on the text in its titlebar, helping
+the user to visually identify terminals based on attributes such as hostname, userid, and any other text programmed to display in the titlebar.
+.P
+Four of the eight layouts divide the screen into two areas, one for a zoomed
+window and the other for a stack of the remaining windows.
+These four layouts can be adjusted during use to expand or shrink the number of
+windows in the zoom area and the overall size of the zoom area.
+They are named for the location of the zoom area: zoom_left, zoom_right,
+zoom_top, and zoom_bottom.
+The other four layouts are fullscreen, grid, rows, and columns.
+.P
+Each terminal window can be tagged with one or more tags.
+The user then selects which tag or tags to view, and all windows with those
+tags are arranged in the dynamic layout.
+The list of all tags is displayed on the left of the status bar.
+Tag names are user defined with the default being the numerals 1 through 9.
+.P
+Terminal windows can be minimized to a bar at the bottom of the screen.
+A minimized terminal keeps its tags but stays out of the user's way until it is
+unminimized again.
+Terminal windows can be set to read\-only status in order to prevent
+accidental typing or closing.
+Terminal windows can be added to a focus group in order to type the same input
+into all simultaneously.
+Minimized and read\-only terminal windows are never typed into, even if they are
+included in the focus group.
+.P
+Terminal color schemes are dynamically applied by comparing the text of the
+terminal's title with an ordered set of user\-defined color rules.
+.SH OPTIONS
+.TP
+.B \-h, \-?
+prints a brief usage message to stderr, then exits.
+.TP
+.B \-i file
+Use the specified INI file instead of the default file.
+.TP
+.B \-s
+Suppresses all startup actions defined in the INI files.
+.TP
+.B \-v
+prints version information to stderr, then exits.
+.SH USAGE
+This section lists the default keyboard and mouse mappings to actions in
+.BR a4 .
+Everything is user-defined and may be customized to the user's liking (see
+.B CUSTOMIZATION
+below).
+.SS Keyboard commands
+.TP
+.B Ctrl\-g c
+Create a new terminal window.
+.TP
+.B Ctrl\-g x x
+Force close the focused terminal.
+.TP
+.B Ctrl\-g Enter
+Zoom the focused terminal window to the top of the window stack, to be window
+#1, or swap with the next window if it is already #1.
+.TP
+.B Ctrl\-g .
+Minimize/unminimize the focused terminal window.
+.TP
+.B Ctrl\-g q q
+Force close all terminals and exit
+.BR a4 .
+.TP
+.B Ctrl\-g Ctrl\-l
+Redraw the entire application.
+.TP
+.B Ctrl\-g s
+Enable or disable the status bar.
+.TP
+.B Ctrl\-g S
+Switch the position of the status bar between top and bottom.
+.TP
+.BR "Ctrl\-g v [1..n]" " or " "Ctrl\-g [F1..Fn]" "
+View all terminal windows of only the tag at position
+.BR n .
+.TP
+.B Ctrl\-g t [1..n]
+Set the focused terminal window to only the tag at position
+.BR n .
+.TP
+.B Ctrl\-g V [1..n]
+Toggle viewing of terminal windows of the tag at position
+.BR n .
+.TP
+.B Ctrl\-g T [1..n]
+Toggle on/off the tag at position
+.B n
+on the focused terminal window.
+.TP
+.B Ctrl\-g v 0
+View all terminal windows of all tags.
+.TP
+.B Ctrl\-g v Tab
+Switch to viewing the terminal windows of the previously selected set of tags.
+.TP
+.B Ctrl\-g t 0
+Set all tags on the focused terminal window.
+.TP
+.B Ctrl\-g [1..n]
+Focus terminal window number
+.BR n .
+.TP
+.B Ctrl\-g j
+Focus next terminal window.
+.TP
+.B Ctrl\-g k
+Focus previous terminal window.
+.TP
+.B Ctrl\-g Tab
+Focus the last selected terminal window.
+.TP
+.B Ctrl\-g H
+Focus terminal window to the left.
+.TP
+.B Ctrl\-g J
+Focus terminal window below.
+.TP
+.B Ctrl\-g K
+Focus terminal window above.
+.TP
+.B Ctrl\-g L
+Focus terminal window to the right.
+.TP
+.B Ctrl\-g 0
+Toggle all visible terminal windows to be grouped for simultaneous typing.
+Minimized and read-only windows are not be typed into, even if they are included
+in the focused group.
+.TP
+.B Ctrl\-g )
+Toggle the focused terminal window to be part of a group of one or more focused
+windows for simultaneous typing. Minimized and read-only windows
+are not be typed into, even if they are included in the focused group.
+.TP
+.B Ctrl\-g *
+Toggle read-only status of the focused terminal window so that no keypresses
+are sent to it.
+.TP
+.B Ctrl\-a f
+Set layout to full screen.
+.TP
+.B Ctrl\-a g
+Set layout to grid.
+.TP
+.B Ctrl\-a h
+Set layout to zoom left.
+.TP
+.B Ctrl\-a j
+Set layout to zoom bottom.
+.TP
+.B Ctrl\-a k
+Set layout to zoom top.
+.TP
+.B Ctrl\-a l
+Set layout to zoom right.
+.TP
+.B Ctrl\-a c
+Set layout to columns.
+.TP
+.B Ctrl\-a r
+Set layout to rows.
+.TP
+.B Ctrl\-a Space
+Cycle forward through the layouts.
+.TP
+.B Ctrl\-a Ctrl\-Space
+Cycle backward through the layouts.
+.TP
+.B Ctrl\-a Tab
+Switch to the previous layout.
+.TP
+.B Ctrl\-a i
+Increment the number of terminal windows in the zoom area.
+.TP
+.B Ctrl\-a d
+Decrement the number of terminal windows in the zoom area, if using a zoom layout.
+.TP
+.B Ctrl\-a I
+Increase the size of the zoom area by 5%, if using a zoom layout.
+.TP
+.B Ctrl\-a D
+Decrease the size of the zoom area by 5%, if using a zoom layout.
+.TP
+.B Shift\-PageUp/PageDown
+Scroll backward/forward half a screen in the focused terminal window.
+.TP
+.B Ctrl\-g PageUp/PageDown
+Scroll backward/forward a full screen in the focused terminal window.
+.SS Mouse in terminal window
+.TP
+.B Button1 click
+Focus the selected terminal window.
+.TP
+.B Ctrl\-Button1 click
+Zoom the selected terminal window to the top of the window stack, to be window
+#1, or swap with the next window if it is already #1.
+.TP
+.B Button3 click
+Toggle the selected terminal window to be part of a group of one or more
+focused windows for simultaneous typing. Minimized and read-only windows are
+not be typed into, even if they are included in the focused group.
+.TP
+.B Ctrl\-Button3 click
+Toggle all visible terminal windows to be grouped for simultaneous typing.
+Minimized and read-only windows not be typed into, even if they are included
+in the focused group.
+.TP
+.B ScrollWheel up/down
+Scroll backward/forward three lines in the terminal window that the mouse is hovering over.
+.TP
+.B Shift\-ScrollWheel up/down
+Scroll backward/forward half a screen in the terminal window that the mouse is hovering over.
+.TP
+.B Ctrl\-ScrollWheel up/down
+Scroll backward/forward a full screen in the terminal window that the mouse is hovering over.
+.SS Mouse in title bar
+.TP
+.B Button1 click
+Minimize/unminimize the selected terminal window.
+.TP
+.B Button3 click
+Toggle read-only status of the selected terminal window so that no keypresses
+are sent to it.
+.SS Mouse on tags in status bar
+.TP
+.B Button1 click
+View terminal windows of only the selected tag.
+.TP
+.B Ctrl\-Button1 click
+Toggle viewing of selected tag terminal windows.
+.TP
+.B Button3 click
+Set the focused terminal window to only the selected tag.
+.TP
+.B Ctrl\-Button3 click
+Toggle on/off the selected tag on the focused terminal window.
+.SS Mouse on layout symbol in status bar
+.TP
+.B Button1 click
+Cycle forward through the layouts.
+.TP
+.B Button3 click
+Cycle backward through the layouts.
+.TP
+.B Ctrl\-Button1 click
+Increment the number of terminal windows in the zoom area, if using a zoom layout.
+.TP
+.B Ctrl\-Button3 click
+Decrement the number of terminal windows in the zoom area, if using a zoom layout.
+.TP
+.B M\-Ctrl\-Button1 click
+Increase the size of the zoom area by 5%, if using a zoom layout.
+.TP
+.B M\-Ctrl\-Button3 click
+Decrease the size of the zoom area by 5%, if using a zoom layout.
+.SS Mouse on status bar text
+.TP
+.B Button1 click
+Cycle to next status bar command, or refresh the status bar command if there is only one.
+.SS Mouse on layout frame line
+.TP
+.B Button1 click
+Set layout to fullscreen.
+.SH CUSTOMIZATION
+The configuration of
+.B a4
+is controlled by settings in the
+.B a4.ini
+file. Review comments in the default system
+.B a4.ini
+file for instructions on how to customize these settings. See
+.B FILES
+below for the location of configuration files.
+A typical user configuration file is located at
+.BR $HOME/.config/a4/a4.ini .
+The first line is often
+.B include = /usr/local/share/a4/a4.ini
+and then the following lines are the user's preferred override settings.
+Several configuration settings may be cleared out and reset by setting them equal to blank, including
+.BR """startup =""" " and " """statusbar_cmd =""" .
+Having a section head
+.B [ColorScheme]
+followed by a line with just a single
+.B =
+character clears out all previously defined ColorSchemes. Likewise, a section head
+.B [ColorRules]
+followed by a line with just a single
+.B =
+character clears out all previously defined ColorRules.
+Any Key/Mouse Combination assigned in any of the Action sections may be cancelled by assigning it to blank, e.g.
+.BR "C-g c =" . Later Key/Mouse Combination assignments override earlier ones.
+.SS ColorSchemes
+Having different terminal color schemes dynamically applied helps to identify and keep track of all the different terminals with which you're working. The first step is to have different color schemes defined for use by the ColorRules later.
+Terminals typically have a default foreground (fg) color, background (bg)
+color, and 16 standard colors that are used by terminal applications. They
+can also define color numbers up to 255, but the are used less often. In a4,
+you can define ColorSchemes that are then applied to terminal windows
+dynamically by comparing the terminal's title text to defined ColorRules (see
+below). The first defined ColorScheme is used by default for all windows.
+.SS ColorRules
+ColorRules look at the text in a terminal's title bar in order to dynamically set the terminal window's ColorScheme. This helps to identify and keep track of all the different terminals with which you're working.
+Color rules pair text with ColorSchemes. The text in a terminal window's title bar
+is compared with the text of each ColorRule, in the order specified, until one
+matches, and then that ColorScheme is applied to the terminal window. If none of the
+rules match, then the first ColorScheme defined in a4.ini is used.
+.P
+The text of the title bar can be set using an
+.B echo
+command, for example
+.B "echo -ne ""\\\\e]0;foobar\\\\a"""
+sets the title text to
+.BR foobar .
+If using the
+.B bash
+shell, it is convenient to set the
+.B PROMPT_COMMAND
+environment variable to keep this text up-to-date with the current username, hostname, and present working directory.
+This is typically done with something like this in the user's
+.B .bashrc
+file:
+.B "PROMPT_COMMAND='echo -ne ""\\\\e]0;$USER@$HOSTNAME:${PWD/$HOME/\\\\~}\\\\a""'"
+With this kind of setup, it is then easy to specify ColorRules to have your terminals dynamically change colors based on these variables.
+.SS Terminology
+Minimized and read-only terminal windows are never typed into, even if they are selected or focused.
+.TP
+.B selected
+refers to just the one terminal window that has the cursor.
+.TP
+.B focus group
+refers to the set of all visible terminal windows that have the group attribute enabled.
+.TP
+.B focused
+refers to the
+.B selected
+terminal window, and if that window is part of the
+.B focus group
+then
+.B focused
+refers to all windows in the
+.BR "focus group" .
+.TP
+.B mouse-selected
+refers to just the one terminal window that is clicked on in the
+.BR  MouseTermwinActions " or " MouseTitlebarActions
+area.
+.TP
+.B mouse-focused
+refers to the
+.B mouse-selected
+terminal window, and if that window is part of the
+.B focus group
+then
+.B mouse-focused
+refers to all windows in the
+.BR "focus group" .
+.SS Actions that can be mapped to keyboard and mouse events
+.TP
+.B create
+Create a new terminal window and is assigned the currently selected tags. The new window is placed in the #1 position in the order of all visible windows.
+.TP
+.B destroy
+Force close the selected or mouse-selected terminal (not all focused or mouse-focused terminals).
+.TP
+.BR focus [ 1\-9 | # | next | NEXT | prev | PREV | left | right | up | down | swap | group | groupall | 0 ]
+Move focus to the numbered terminal window specified by the numeral parameter
+.BR 1\-9 .
+When
+.B #
+is used in the mapping instead of a numeral, the mapping is automatically expanded to
+nine separate mappings with the
+.B #
+character on both sides of the assignment
+replaced by the numerals
+.BR 1\-9 .
+Parameters
+.BR next " and " prev
+move focus to the next/prev numbered window in the ordered stack of all visible windows.
+Parameters
+.BR NEXT " and " PREV
+do the same but skip over all minimized windows.
+Parameters
+.BR left ", " right ", " up ", and " down
+move focus based on direction rather than number order.
+In the
+.B MouseTermwinActions " or " MouseTitlebarActions
+sections, mapping
+.B focus
+without any parameter focuses the mouse-selected window.
+Parameter
+.B swap
+focuses whichever was the previously focused window.
+Parameter
+.B group
+toggles the selected or mouse-selected window to be part of the
+.B focus group
+for simultaneous typing, while the
+.BR groupall " or " 0
+parameter toggles all visible windows to be part of the
+.BR "focus group" .
+.TP
+.B keysequence char...
+Send a sequence of characters to the focused terminal window. There is a set of
+backslash character escape sequences that may be used with this:
+.B \\\\a
+for alert,
+.B \\\\b
+for backspace,
+.B \\\\e
+for escape,
+.B \\\\f
+for form feed,
+.B \\\\n
+for newline,
+.B \\\\r
+for carriage return,
+.B \\\\t
+for horizontal tab,
+.B \\\\v
+for vertical tab, and
+.B \\\\\\\\
+for backslash.
+.TP
+.BR layout " <" "layout name" >|[ + ] 1 | \-1 | swap
+Set layout to one of the eight named layouts:
+.BR zoom_left ", " zoom_right ", " zoom_top ", " zoom_bottom ", " fullscreen ", " grid ", " rows ", and " columns .
+Parameter
+.BR 1 " or " +1 ,
+cycles forward through the layouts, and
+.BR \-1 ,
+cycles backward. Parameter
+.B swap
+sets the layout to whatever was previously set.
+.TP
+.B minimize
+Minimize/unminimize the selected or mouse-selected terminal window.
+.TP
+.B quit
+Force close all terminals and exit
+.BR a4 .
+.TP
+.B readonly
+Toggle read-only status of the selected or mouse-selected terminal window so
+that no keypresses are sent to it.
+.TP
+.B redraw
+Redraw the entire application.
+.TP
+.BR scrollback " [<" "n lines" >|< ".n percent" >]
+Scroll the focused or mouse-focused terminal window(s).
+Positive numbers scroll backward and negative numbers scroll forward.
+Integer numbers specify the exact number of lines to scroll.
+Numbers with a decimal point are interpreted as a percentage of a full screen of lines to scroll, e.g.
+.B .5
+scrolls back half a screen's worth of lines.
+.TP
+.BR "statusbar next" | vis | on | off | pos | top | bottom
+Parameter
+.B next
+reruns the statusbar command, or cycles to run the next statusbar command if there are more than one.
+Paramter
+.B vis
+toggles the status bar on and off, or
+.BR on " and " off
+set the visibility directly. Parameter
+.B pos
+toggles the statusbar position between top and bottom, or
+.BR top " and " bottom
+set the position directly.
+.TP
+.BR tag " [<" "tag name" >| _all ]
+Set the selected or mouse-selected terminal window to have only the specified
+.B "tag name"
+tag enabled.
+Special parameter
+.B _all
+sets the window to have all tags enabled on it.
+If mapped in the
+.B MouseTagNamesActions
+section,
+.B tag
+may be used without a parameter to set the selected window to have only the clicked tag enabled.
+.TP
+.BR tagtoggle " [<" "tag name" >]
+Toggle the
+.B tag name
+tag on and off on the selected or mouse-selected terminal window. If mapped in the
+.B MouseTagNamesActions
+section,
+.B tagtoggle
+may be used without a parameter to toggle the clicked tag on the selected window.
+.TP
+.BR view " [<" "tag name" >| _all | _swap ]
+View all terminal windows with the
+.B tag name
+tag enabled.
+Special parameter
+.B _all
+views all windows of all tags.
+Special parameter
+.B _swap
+views the windows of whichever set of tags were previously selected.
+If mapped in the
+.B MouseTagNamesActions
+section,
+.B view
+may be used without a parameter to view all windows of the clicked tag.
+.TP
+.BR viewtoggle " [<" "tag name" >]
+Toggle viewing terminal windows of the
+.B tag name
+specified.
+If mapped in the
+.B MouseTagNamesActions
+section,
+.B viewtoggle
+may be used without a parameter to toggle viewing windows of the clicked tag.
+.TP
+.BR zoom " [" n ]
+Zoom the selected or mouse-selected terminal window to the top of the window
+stack, to be window #1, or swap with the next window if it is already #1. If a
+parameter
+.B n
+is passed then that window number is zoomed instead of the selected window.
+.TP
+.BR zoomnum " [[" + | - ] n ]
+If the parameter passed includes a
+.BR + " or " -
+sign symbol prefix then the action is to increase or decrease the number of terminal windows in the zoom area by
+.BR n .
+If there is no sign symbol then the number of windows in the zoom area is set to
+.BR n .
+If no parameter is passed then the number of windows in the zoom area is reset to the definition in the
+.B a4.ini
+configuration file.
+The minimum value of zoomnum is 1.
+.TP
+.BR zoomsize " [[" + | - ] .n ]
+If the parameter passed includes a
+.BR + " or " -
+sign symbol prefix then the action is to increase or decrease the size of the zoom area by
+.B n
+percent of the screen. If there is no sign symbol then the size of the zoom area is set to
+.B n
+percent of the screen.
+If no parameter is passed then the size of the zoom area is reset to the definition in the
+.B a4.ini
+configuration file.
+The minimum value of zoomsize is .1 and the maximum value is .9..
+.SH ENVIRONMENT
+.TP
+.B A4
+All processes running within
+.B a4
+have this variable set to the version.
+.TP
+.B TERM
+In general, just use whatever the underlying terminal defaults to for this
+variable. If there's any question, use
+.BR xterm\-256color .
+.TP
+.B COLORTERM
+If you're not seeing 24\-bit truecolor, set this variable to
+.B 24bit
+or
+.B truecolor
+in the underlying terminal and restart
+.BR a4 .
+.SH FILES
+.TP
+.B a4.ini
+is the configuration file read by
+.B a4
+during initial startup. The location of the user's default file is
+.BR $XDG_CONFIG_HOME/a4/a4.ini ,
+which is usually
+.B $HOME/.config/a4/a4.ini
+and the system default file is
+.BR /usr/local/share/a4/a4.ini .
+.TP
+.B *.ini
+There are additional, partial configuration files provided in the
+.B /usr/local/share/a4/
+directory, which may be included in a user's own
+.B a4.ini
+file. For example,
+.B theme_default.ini
+includes all the
+.B a4
+color theme settings;
+.B cs_solarized.ini
+defines the Solarized terminal color schemes, which may be used in color rules;
+.B vt220.ini
+defines the vt220 ANSI escape codes for terminal overrides.
+.SH NOTES
+It is useful to run
+.B a4
+with
+.BR abduco (1)
+so that you can disconnect and reconnect while your
+.B a4
+session continues to run in the background. This is also helpful if you run
+.B a4
+on remote machines since the session continues to run even if your connection to the machine is lost, and you can reconnect later without losing any of your work.
+Consider setting a alias such as
+.BR "alias a4.abduco=""abduco -A a4 a4 $@""" .
+.P
+There's a configuration error in the
+.B xterm-256color
+file installed by some Linux distros that causes the mouse to behave incorrectly by printing characters to the terminal.
+If you experience this problem, run the following command to put a local,
+patched copy of the file in place for your login account:
+.B infocmp xterm-256color | sed -E 's/(kmous=\\\\\\\\E\\\\[)</\\\\1M/' | tic -o ~/.terminfo -
+.P
+More documentation of
+.B a4
+can be found at
+.B https://a4term.com/
+.SH SEE ALSO
+.BR abduco (1),
+.BR a4-keycodes (1)
