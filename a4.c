@@ -1059,6 +1059,7 @@ static void create_tframe(void) {
 
 	tframe->win = tickit_window_new(frame.win, tframe->rect, 0);
 	tframe->bind_geomchange = tickit_window_bind_event(tframe->win, TICKIT_WINDOW_ON_GEOMCHANGE, 0, &resize_tframewin, tframe);
+	tframe->cs = config.colorschemes;
 
 	create_tbarwin(tframe);
 	create_termwin(tframe);
@@ -1873,7 +1874,7 @@ static void parse_args(int argc, char *argv[]) {
 						startups = false;
 						break;
 					case 'v':
-						fprintf(stderr, "%s %s © 2022 Ross P. Mohn\n", application_name, VERSION);
+						fprintf(stderr, "%s %s © 2022-2023 Ross P. Mohn\n", application_name, VERSION);
 						exit(EXIT_SUCCESS);
 					default:
 						usage("Invalid option -%c", argv[arg][1]);

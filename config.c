@@ -439,6 +439,8 @@ static void clear_colorschemes(Config *cfg) {
 		free(cfg->colorschemes[cfg->ncolorschemes - 1].name);
 		tickit_pen_unref(cfg->colorschemes[cfg->ncolorschemes - 1].pen);
 	}
+	free(cfg->colorschemes);
+	cfg->colorschemes = NULL;
 }
 
 static void destroy_colorschemes(Config *cfg) {
@@ -997,6 +999,9 @@ static void preset_configs(Config *cfg) {
 }
 
 static void postset_configs(Config *cfg) {
+	if (!cfg->colorschemes)
+		error("You must define at least one colorscheme in configuration file \"%s\"", a4configfnameptr);
+
 	currlayout = cfg->layouts;
 	currzoomnum = cfg->zoomnum;
 	currzoomsize = cfg->zoomsize;
