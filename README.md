@@ -65,7 +65,7 @@ make && sudo make install
 #### libtickit
 
 Requires [libtickit](https://www.leonerd.org.uk/code/libtickit/)
-with minimum revision 809 code source. The latest released verision
+with minimum revision 809 code source. The latest released version
 0.4.3 is revision 803, so you will likely have to compile this yourself
 for now. If you're compiling this yourself, make sure you also have
 installed both
@@ -84,7 +84,7 @@ make && sudo make install
 #### libvterm
 
 Requires [libvterm](https://www.leonerd.org.uk/code/libvterm/)
-with minimum revision 819 code source. The latest released verision 0.3
+with minimum revision 819 code source. The latest released version 0.3
 is revision 813, so you will likely have to compile this yourself for
 now.
 
