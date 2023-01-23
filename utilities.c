@@ -20,6 +20,13 @@ static bool checkshell(const char *shell, const char *application_name);
 static const char *getshell(const char *application_name);
 
 /*
+static void printVTermColor(VTermColor *c);
+static void printVTermCell_Colors(VTermScreenCell *cell);
+static void printVTermCell_Info(VTermScreenCell *cell);
+static void printTickitPen(TickitPen *pen);
+*/
+
+/*
 static NameValue *get_NameValue(NameValue *set, const char *key);
 static void destroy_NameValues(NameValue *set);
 static void load_NameValues(NameValue **set, const char *fname);
@@ -108,5 +115,51 @@ static void load_NameValues(NameValue **set, const char *fname) {
 		free(str);
 	}
 	fclose(fp);
+}
+*/
+
+/*
+static void printVTermColor(VTermColor *c) {
+	if (VTERM_COLOR_IS_RGB(c))
+		tickit_debug_logf("UVC", "|  |  color is 0x%02X%02X%02X", c->rgb.red, c->rgb.green, c->rgb.blue);
+	if (VTERM_COLOR_IS_INDEXED(c))
+		tickit_debug_logf("UVC", "|  |  color is %d", c->indexed.idx);
+	if (VTERM_COLOR_IS_DEFAULT_FG(c))
+		tickit_debug_logf("UVC", "|  |  |  this is also the default fg");
+	if (VTERM_COLOR_IS_DEFAULT_BG(c))
+		tickit_debug_logf("UVC", "|  |  |  this is also the default bg");
+}
+
+static void printVTermCell_Colors(VTermScreenCell *cell) {
+	tickit_debug_logf("UCC", "|  VTermCell fg color:");
+	printVTermColor(&cell->fg);
+	tickit_debug_logf("UCC", "|  VTermCell bg color:");
+	printVTermColor(&cell->bg);
+}
+
+static void printVTermCell_Info(VTermScreenCell *cell) {
+	tickit_debug_logf("UCI", "VTermCell char: %c(%02X)", cell->chars[0], cell->chars[0]);
+	printVTermCell_Colors(cell);
+}
+
+static void printTickitPen(TickitPen *pen) {
+	int idx;
+	TickitPenRGB8 rgb;
+
+	idx = tickit_pen_get_colour_attr(pen, TICKIT_PEN_FG);
+	if (tickit_pen_has_colour_attr_rgb8(pen, TICKIT_PEN_FG)) {
+		rgb = tickit_pen_get_colour_attr_rgb8(pen, TICKIT_PEN_FG);
+		tickit_debug_logf("UTP", "pen.fg = %03d/0x%02X%02X%02X", idx, rgb.r, rgb.g, rgb.b);
+	} else {
+		tickit_debug_logf("UTP", "pen.fg = %03d/------", idx);
+	}
+
+	idx = tickit_pen_get_colour_attr(pen, TICKIT_PEN_BG);
+	if (tickit_pen_has_colour_attr_rgb8(pen, TICKIT_PEN_BG)) {
+		rgb = tickit_pen_get_colour_attr_rgb8(pen, TICKIT_PEN_BG);
+		tickit_debug_logf("UTP", "pen.bg = %03d/0x%02X%02X%02X", idx, rgb.r, rgb.g, rgb.b);
+	} else {
+		tickit_debug_logf("UTP", "pen.bg = %03d/------", idx);
+	}
 }
 */
