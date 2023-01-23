@@ -1059,10 +1059,12 @@ static void create_tframe(void) {
 
 	tframe->win = tickit_window_new(frame.win, tframe->rect, 0);
 	tframe->bind_geomchange = tickit_window_bind_event(tframe->win, TICKIT_WINDOW_ON_GEOMCHANGE, 0, &resize_tframewin, tframe);
-	tframe->cs = config.colorschemes;
 
 	create_tbarwin(tframe);
 	create_termwin(tframe);
+
+	// set and apply initial default colors
+	applycolorrules(tframe);
 
 	attach(tframe);
 	dofocus(tframe);
