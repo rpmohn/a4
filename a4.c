@@ -1007,7 +1007,7 @@ static void layout(char *args[]) {
 		if (pertag.lastlayout[pertag.curtag])
 			layoutname = pertag.lastlayout[pertag.curtag];
 		else
-			return;
+			layoutname = "+1";
 	}
 
 	pertag.lastlayout[pertag.curtag] = currlayout->name;
