@@ -94,6 +94,7 @@ static void clear_colorschemes(Config *cfg);
 static void destroy_colorschemes(Config *cfg);
 static ColorScheme *create_colorscheme(Config *cfg, const char *name);
 static ColorScheme *get_colorscheme(Config *cfg, const char *name);
+static ColorScheme *copy_colorscheme(ColorScheme *src);
 static void update_colorscheme(Config *cfg, const char *section, const char *name, const char *value);
 static void clear_colorrules(Config *cfg);
 static void destroy_colorrules(Config *cfg);
@@ -201,6 +202,7 @@ static void set_attrs_color(TickitPen *pen, TickitPenAttr attr, const char *valu
 static void set_attrs_style(TickitPen *pen, const char *value) {
 	char *v, *attr, *save;
 
+	save = NULL;
 	v = strdup(value);
 	for (attr = strtok_r(v, ", 	", &save);
 			attr != NULL;
@@ -458,10 +460,8 @@ static ColorScheme *create_colorscheme(Config *cfg, const char *name) {
 	*/
 
 	/* Initialize all color index values */
-	for (int i = 0; i < MAX_COLORINDEX; i++) {
-		cfg->colorschemes[cfg->ncolorschemes - 1].palette[i].type = VTERM_COLOR_INDEXED;
-		cfg->colorschemes[cfg->ncolorschemes - 1].palette[i].indexed.idx = i;
-	}
+	for (int i = 0; i < MAX_COLORINDEX; i++)
+		vterm_color_indexed(&cfg->colorschemes[cfg->ncolorschemes - 1].palette[i], i);
 
 	cfg->colorschemes[cfg->ncolorschemes -1].pen = tickit_pen_new();
 
@@ -474,6 +474,21 @@ static ColorScheme *get_colorscheme(Config *cfg, const char *name) {
 			return &cfg->colorschemes[i];
 
 	return NULL;
+}
+
+static ColorScheme *copy_colorscheme(ColorScheme *src) {
+	ColorScheme *dst;
+
+	dst = calloc(1, sizeof(ColorScheme));
+	dst->fg = src->fg;
+	dst->bg = src->bg;
+	dst->cursor = src->cursor;
+	for (int i = 0; i < MAX_COLORINDEX; i++)
+		dst->palette[i] = src->palette[i];
+	dst->cell = src->cell;
+	dst->pen = tickit_pen_clone(src->pen);
+
+	return dst;
 }
 
 static void update_colorscheme(Config *cfg, const char *section, const char *name, const char *value) {
@@ -523,8 +538,11 @@ static void update_colorscheme(Config *cfg, const char *section, const char *nam
 }
 
 static void clear_colorrules(Config *cfg) {
-	for (; cfg->ncolorrules > 0; cfg->ncolorrules--)
+	for (; cfg->ncolorrules > 0; cfg->ncolorrules--) {
 		free(cfg->colorrules[cfg->ncolorrules - 1].title);
+		tickit_pen_unref(cfg->colorrules[cfg->ncolorrules - 1].cs->pen);
+		free(cfg->colorrules[cfg->ncolorrules - 1].cs);
+	}
 }
 
 static void destroy_colorrules(Config *cfg) {
@@ -537,14 +555,43 @@ static void create_colorrule(Config *cfg, const char *name, const char *value) {
 		clear_colorrules(cfg);
 		return;
 	}
-	ColorScheme *palette = get_colorscheme(cfg, value);
-	if (!palette)
-		error("Invalid ColorScheme %s in configuration file", value);
 
-	// FIXME: Add a default color rule if none are specified
+	ColorScheme *cs, *src;
+	unsigned int i;
+	char *str, *tok, *save;
+	save = NULL;
+	str = strdup(value);
+	for (i = 0, tok = strtok_r(str, " 	", &save);
+			tok != NULL;
+			i++, tok = strtok_r(NULL, " 	", &save)) {
+		switch (i) {
+			case 0:
+				src = get_colorscheme(cfg, tok);
+				if (src == NULL)
+					error("Invalid ColorScheme %s in configuration file", tok);
+				cs = copy_colorscheme(src);
+				break;
+			case 1:
+				if(strcmp(tok, "-1") != 0) {
+					build_vtermcolor(tok, &cs->fg);
+					cs->cell.fg = cs->fg;
+					set_attrs_color(cs->pen, TICKIT_PEN_FG, tok);
+				}
+				break;
+			case 2:
+				build_vtermcolor(tok, &cs->bg);
+				cs->cell.bg = cs->bg;
+				set_attrs_color(cs->pen, TICKIT_PEN_BG, tok);
+				break;
+			default:
+				error("Invalid ColorRule specification \"%s = %s\" in configuration file", name, value);
+		}
+	}
+	free(str);
+
 	cfg->colorrules = realloc(cfg->colorrules, ++cfg->ncolorrules * sizeof(ColorRule));
 	cfg->colorrules[cfg->ncolorrules - 1].title = strdup(name);
-	cfg->colorrules[cfg->ncolorrules - 1].palette = palette;
+	cfg->colorrules[cfg->ncolorrules - 1].cs = cs;
 }
 
 static void clear_sbar_cmds(Config *cfg) {
@@ -999,6 +1046,7 @@ static void preset_configs(Config *cfg) {
 }
 
 static void postset_configs(Config *cfg) {
+	// FIXME: In theory, could destroy all but the first, default colorschemes after all colorrules are built
 	if (!cfg->colorschemes)
 		error("You must define at least one colorscheme in configuration file \"%s\"", a4configfnameptr);
 

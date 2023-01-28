@@ -57,7 +57,7 @@ typedef struct {
 
 typedef struct {
 	char *title;
-	ColorScheme *palette;
+	ColorScheme *cs;
 } ColorRule;
 
 /* KeyName is key plus optional modifier prefix of M-, C-, S-, M-C-, M-S-, C-S-, M-C-S-

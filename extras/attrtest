@@ -7,7 +7,7 @@
 set -eu # Fail on errors or undeclared variables
 
 function usage {
-	echo "Usage: ${0##*/} [-abcgs]"
+    echo "Usage: ${0##*/} [-abcgs]"
     echo "  -a font attributes"
     echo "  -b 16 basic colors"
     echo "  -c 256 color cube"
@@ -130,7 +130,9 @@ while getopts ":bcgsa" o; do
     case $o in
         a)  print_attrs
             ;;
-        b)  print_run 0 16
+        b)  print_run 0 8
+            echo
+            print_run 8 8
             printf "\n"
             ;;
         c)  print_blocks 16 231 6 6 3

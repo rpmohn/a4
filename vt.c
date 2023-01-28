@@ -221,7 +221,7 @@ static void applycolorrules(TFrame *tframe) {
 	for (i = 0; i < config.ncolorrules; i++) {
 		r = &config.colorrules[i];
 		if (strstr(tframe->title, r->title)) {
-			tframe->cs = r->palette;
+			tframe->cs = r->cs;
 			break;
 		}
 	}
