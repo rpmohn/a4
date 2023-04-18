@@ -65,10 +65,9 @@ make && sudo make install
 #### libtickit
 
 Requires [libtickit](https://www.leonerd.org.uk/code/libtickit/)
-with minimum revision 809 code source. The latest released version
-0.4.3 is revision 803, so you will likely have to compile this yourself
-for now. If you're compiling this yourself, make sure you also have
-installed both
+with a minimum version of
+[0.4.3](https://www.leonerd.org.uk/code/libtickit/libtickit-0.4.3.tar.gz).
+If you're compiling this yourself, make sure you also have installed both
 [libtermkey-dev](https://www.leonerd.org.uk/code/libtermkey/)
 (probably in your package manager but maybe not with required minimum
 v0.22) and
@@ -76,21 +75,19 @@ v0.22) and
 (probably in your package manager).
 
 ```sh
-bzr branch https://bazaar.leonerd.org.uk/c/libtickit/
-cd libtickit
+curl https://www.leonerd.org.uk/code/libtickit/libtickit-0.4.3.tar.gz | tar xzf -
+cd libtickit-0.4.3
 make && sudo make install
 ```
 
 #### libvterm
 
 Requires [libvterm](https://www.leonerd.org.uk/code/libvterm/)
-with minimum revision 819 code source. The latest released version 0.3
-is revision 813, so you will likely have to compile this yourself for
-now.
-
+with a minimum version of
+[0.3.1](https://www.leonerd.org.uk/code/libvterm/libvterm-0.3.1.tar.gz).
 ```sh
-bzr branch https://bazaar.leonerd.org.uk/c/libvterm/
-cd libvterm
+curl https://www.leonerd.org.uk/code/libvterm/libvterm-0.3.1.tar.gz | tar xzf -
+cd libvterm-0.3.1
 make && sudo make install
 ```
 
