@@ -108,6 +108,12 @@ View all terminal windows of all tags.
 .B Ctrl\-g v Tab
 Switch to viewing the terminal windows of the previously selected set of tags.
 .TP
+.B Ctrl\-PageDown
+View terminal windows of the next tag(s) to the right.
+.TP
+.B Ctrl\-PageUp
+View terminal windows of the next tag(s) to the left.
+.TP
 .B Ctrl\-g t 0
 Set all tags on the focused terminal window.
 .TP
@@ -503,7 +509,7 @@ section,
 .B tagtoggle
 may be used without a parameter to toggle the clicked tag on the selected window.
 .TP
-.BR view " [<" "tag name" >| _all | _swap ]
+.BR view " [<" "tag name" >| _all | _swap | next | prev ]
 View all terminal windows with the
 .B tag name
 tag enabled.
@@ -513,6 +519,12 @@ views all windows of all tags.
 Special parameter
 .B _swap
 views the windows of whichever set of tags were previously selected.
+Special parameter
+.B next
+views all windows of the next tag(s) to the right.
+Special parameter
+.B prev
+views all windows of the next tag(s) to the left.
 If mapped in the
 .B MouseTagNamesActions
 section,
