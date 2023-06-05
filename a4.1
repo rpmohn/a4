@@ -62,6 +62,9 @@ below).
 .B Ctrl\-g c
 Create a new terminal window.
 .TP
+.B Ctrl\-g n
+Create a new terminal window on the left-most unused tag.
+.TP
 .B Ctrl\-g x x
 Force close the focused terminal.
 .TP
@@ -369,8 +372,10 @@ refers to all windows in the
 .BR "focus group" .
 .SS Actions that can be mapped to keyboard and mouse events
 .TP
-.B create
-Create a new terminal window and is assigned the currently selected tags. The new window is placed in the #1 position in the order of all visible windows.
+.B create [ nextfree ]
+Create a new terminal window and is assigned the currently selected tags. The new window is placed in the #1 position in the order of all visible windows. If the parameter
+.BR nextfree
+is used, the new window is assigned the first available unused tag.
 .TP
 .B destroy
 Force close the selected or mouse-selected terminal (not all focused or mouse-focused terminals).
