@@ -77,7 +77,7 @@ v0.22) and
 ```sh
 curl https://www.leonerd.org.uk/code/libtickit/libtickit-0.4.3.tar.gz | tar xzf -
 cd libtickit-0.4.3
-make && sudo make install
+make && sudo make install && sudo ldconfig
 ```
 
 #### libvterm
@@ -88,7 +88,7 @@ with a minimum version of
 ```sh
 curl https://www.leonerd.org.uk/code/libvterm/libvterm-0.3.1.tar.gz | tar xzf -
 cd libvterm-0.3.1
-make && sudo make install
+make && sudo make install && sudo ldconfig
 ```
 
 ## Documentation
