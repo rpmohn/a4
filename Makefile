@@ -7,7 +7,7 @@ DOCDIR = ${DATAROOTDIR}/doc/a4
 LIBS = -lutil -ltickit -lvterm
 LDFLGS = ${LDFLAGS} ${LIBS}
 
-VERSION = $(shell git describe --always --dirty 2>/dev/null || echo "v0.2.1")
+VERSION = $(shell git describe --always --dirty 2>/dev/null || echo "v0.2.2")
 CPPFLGS = ${CPPFLAGS} -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -D_XOPEN_SOURCE_EXTENDED
 CFLGS = ${CFLAGS} -std=c99 ${INCS} -DNDEBUG -DSYSCONFDIR=\"${DESTDIR}${SYSCONFDIR}\" ${CPPFLGS} -DVERSION=\"${VERSION}\"
 DEBUG_CFLGS = ${CFLGS} -UNDEBUG -O0 -g -ggdb -Wall -Wextra -Wno-unused-parameter -fdiagnostics-color=always
