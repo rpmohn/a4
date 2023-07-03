@@ -480,6 +480,35 @@ static int resize_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info
 	return 1;
 }
 
+/* BEGIN code from https://dev.to/rdentato/utf-8-strings-in-c-2-3-3kp1 */
+static uint8_t const u8_length[] = {
+// 0 1 2 3 4 5 6 7 8 9 A B C D E F
+   1,1,1,1,1,1,1,1,0,0,0,0,2,2,3,4
+};
+
+#define u8length(s) u8_length[(((uint8_t *)(s))[0] & 0xFF) >> 4];
+
+static uint32_t str_to_utf8encoding(const char *str) {
+	uint32_t encoding = 0;
+	int len = u8length(str);
+	for (int i = 0; i < len && str[i] != '\0'; i++)
+		encoding = (encoding << 8) | (str[i] & 0xFF);
+	return encoding;
+}
+
+static uint32_t str_to_codepoint(const char *str) {
+	uint32_t c = str_to_utf8encoding(str);
+	if (c > 0x7f) {
+		uint32_t mask = (c <= 0x00efbfbf) ? 0x000f0000 : 0x003f0000;
+		c = ((c & 0x07000000) >> 6) |
+			((c & mask)       >> 4) |
+			((c & 0x00003f00) >> 2) |
+			 (c & 0x0000003f);
+	}
+	return c;
+}
+/* END code from https://dev.to/rdentato/utf-8-strings-in-c-2-3-3kp1 */
+
 static void keypress(TickitKeyEventInfo *key, const char *seq) {
 	char buffer[MAX_STR];
 	ssize_t bytes;
@@ -498,7 +527,8 @@ static void keypress(TickitKeyEventInfo *key, const char *seq) {
 				strcpy(buffer, seq);
 			} else {
 				if (key->type == TICKIT_KEYEV_TEXT) {
-					vterm_keyboard_unichar(tframe->vt, key->str[0], (VTermModifier)key->mod);
+					uint32_t codepoint = str_to_codepoint(key->str);
+					vterm_keyboard_unichar(tframe->vt, codepoint, (VTermModifier)key->mod);
 				} else { // TICKIT_KEYEV_KEY
 					VTermKey k = strp_key(key->str);
 					if (k == VTERM_KEY_NONE) {
