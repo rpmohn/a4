@@ -46,19 +46,11 @@ which in turn is a text-based implementation of
 
 ![parts of the screen](extras/partsofscreen.png)
 
-## Getting Started
+## Distribution Packages
 
-### Packages
+#### [Void Linux]
 
-tgz packages are found on the: [Tags] page.
-
-[Managed packages] are in [Void Linux] only!
-
-Install from package
---------------------
-#### Void-Linux
-
-A4 can be installed using the xbps package manager
+Install using the xbps package manager
 
 ```sh
 sudo xbps-install -S a4
@@ -66,7 +58,9 @@ sudo xbps-install -S a4
 
 No other distribution packages at this time.
 
-### a4 Compile and Install
+## a4 Compile and Install
+
+tgz packages are available from the [Tags] page.
 
 ```sh
 git clone https://github.com/rpmohn/a4
@@ -103,6 +97,32 @@ with a minimum version of
 curl https://www.leonerd.org.uk/code/libvterm/libvterm-0.3.1.tar.gz | tar xzf -
 cd libvterm-0.3.1
 make && sudo make install && sudo ldconfig
+```
+
+## Notes
+
+### Persistence
+
+It is useful to run a4 with 
+[abduco](https://www.brain-dump.org/projects/abduco/) 
+so that you can disconnect and reconnect while your a4 session 
+continues to run in the background. This is also helpful if you run a4 
+on remote machines since the session continues to run even if your 
+connection to the machine is lost, and you can reconnect later without 
+losing any of your work. Consider setting a alias such as this:
+```sh
+alias a4.abduco="abduco -A a4 a4 $@"
+```
+
+### Mouse Support
+
+There's a configuration error in the xterm-256color file installed 
+by some Linux distros that causes the mouse to behave incorrectly by 
+printing characters to the terminal. If you experience this problem, 
+run the following command to put a local, patched copy of the file in 
+place for your login account:
+```sh
+infocmp xterm-256color | sed -E 's/(kmous=\\E\[)</\1M/' | tic -o ~/.terminfo -
 ```
 
 ## Documentation
