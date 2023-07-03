@@ -50,7 +50,21 @@ which in turn is a text-based implementation of
 
 ### Packages
 
-No distribution packages at this time.
+tgz packages are found on the: [Tags] page.
+
+[Managed packages] are in [Void Linux] only!
+
+Install from package
+--------------------
+#### Void-Linux
+
+A4 can be installed using the xbps package manager
+
+```sh
+sudo xbps-install -S a4
+```
+
+No other distribution packages at this time.
 
 ### a4 Compile and Install
 
@@ -95,3 +109,6 @@ make && sudo make install && sudo ldconfig
 
 See [a4term.com](https://a4term.com/) for more documentation, including a copy
 of the manual page and default keyboard maps.
+
+[Tags]: https://github.com/rpmohn/a4/tags
+[Void Linux]: https://voidlinux.org/packages/?arch=x86_64&q=a4
