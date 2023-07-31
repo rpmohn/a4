@@ -56,6 +56,20 @@ Install using the xbps package manager
 sudo xbps-install -S a4
 ```
 
+#### [Nix]
+
+Install using `nix-env`
+
+``` sh
+nix-env -iA nixos.a4term # change `nixos` for `nixpkgs`, if on a non-NixOS system
+```
+
+Try it with `nix-shell`
+
+``` sh
+nix-shell -p a4term
+```
+
 No other distribution packages at this time.
 
 ## a4 Compile and Install
@@ -132,3 +146,4 @@ of the manual page and default keyboard maps.
 
 [Tags]: https://github.com/rpmohn/a4/tags
 [Void Linux]: https://voidlinux.org/packages/?arch=x86_64&q=a4
+[Nix]: https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=a4term
