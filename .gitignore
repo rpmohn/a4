@@ -1,5 +1,6 @@
 a4
 extras/a4-keycodes
+*.o
 err.*
 .*.swp
 tmp

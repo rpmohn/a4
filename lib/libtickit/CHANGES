@@ -1,0 +1,133 @@
+2022-08-25        0.4.3
+  * Added tickit_term_get_drivername()
+  * Added concept of driver-private termctls
+  * Renamed API functions relating to Tickit, window and terminal control
+    metadata (deprecated back-compat aliases are currently provided)
+  * Permit overriding xterm driver's `cap.rgb8` setting
+  * Added a simple example program that just prints the current values of all
+    the termctls
+  * Remember to #include the right system headers for pid_t and friends
+
+2021-08-18        0.4.2a
+  * Added tickit_watch_signal(3) and tickit_watch_process(3)
+  * Respect TICKIT_BIND_FIRST flag when binding event loop handlers (besides
+    timers)
+  * Track cursor blink state in mockterm
+  * Various small bugfixes to bundled examples
+
+2020-10-01        0.4.1
+  * Added tickit_term_teardown(3)
+  * Call tickit_term_teardown() during tickit_destroy(3) to ensure reliable
+    terminal shutdown even when additional references remain
+
+2020-05-25        0.4.0
+  * Expose TickitBuilder and TickitTermBuilder as API-visible structs
+  * Added tickit_build(3) and tickit_term_build(3)
+  * Added tickit_new_stdtty(3)
+  * Optionally parse a secondary RGB8 colour specification in
+    tickit_pen_set_colour_attr_desc(3)
+  * Accept colour desc strings in tickit_pen_new_attrs(3)
+  * Added TICKIT_BIND_ONESHOT event-binding flag
+  * Added tickit_watch_io(3)
+  * Bugfix unit test by not including 0 flag in sprintf %s, as it is
+    nonportable
+  * Ensure termkey_new() sees correct value of $TERM during its construction
+  * Bugfixes for t/18term-builder.c on non-Linux platforms
+  * Bugfixes for ti_getstr hook when operating on abstract terminals that are
+    not TTY filehandles
+  * Many spelling mistakes / typo fixes in manpages
+
+2020-03-02 19:09  0.3.5
+  * Copied wcwidth() implementation from libvterm, for improved handling of
+    emoji characters and other fullwidth or wide characters (LP1865502)
+
+2020-01-27 00:25  0.3.4
+  * Added macros and functions for version query
+  * Ensure that all kinds of event watches can be cancelled, even lone ones
+  * Fix name of tickit_watch_timer_at_epoch() function
+  * Fix manpages around recent function renames
+  * Added manpage documentation on behaviour of event watches at cancel time
+
+2019-11-18 17:05  0.3.3
+  * Ensure that calling tickit_window_close(3) twice doesn't crash
+    (thanks noctux)
+  * Conditionally #define feature-test macros only on __GLIBC__ because other
+    OSes (e.g. the BSDs) use those macros to hide symbols (LP1824791)
+  * Make sure that examples build with $(CC) rather than hardcoded gcc
+  * Account for X10's lack of mouse button reporting on release events
+  * Avoid SEGV on shutdown if windows get closed after their parent
+
+2019-04-12 16:35  0.3.2
+  * #define _POSIX_C_SOURCE as some platforms need it
+  * Hide terminal cursor around redraws
+  * Fix bug in terminal output buffering logic around split writes
+  * Default 4096 byte output buffer in toplevel Tickit instance
+  * Skip screen-based terminfo test if loading terminfo fails, due to ongoing
+    unibilium issue
+
+2019-04-10 21:03  0.3.1
+  * Avoid nested functions in unit tests as some versions of gcc dislike this
+  * Bugfixes and unit test for ti_hook
+  * Fix various (harmless) warnings from noisy C compilers
+  * Use only one standard streq() macro across all source
+  * Fix signature of render() in examples/demo-scroll.c
+  * Fix documentation of tickit_utf8_ncountmore(3) to include len param (LP1797763)
+  * Have TICKIT_TERMCTL_COLORS return (1<<24) on RGB8-capable terminals
+
+2019-03-17 22:11  0.3
+  * Renamed:
+      + tickit_timer_after_msec => tickit_watch_timer_after_msec
+      + tickit_timer_after_tv   => tickit_watch_timer_after_tv
+      + tickit_later            => tickit_watch_later
+      + tickit_timer_cancel     => tickit_watch_cancel
+  * Added toplevel Tickit functions for loop control
+      + tickit_tick(3)
+      + tickit_watch_io_read(3)
+      + tickit_watch_timer_at_epoch(3)
+      + tickit_watch_timer_at_tv(3)
+  * Added TickitType
+      + tickit_term_ctltype(3)
+  * Added window controls
+      + tickit_window_getctl_int(3)
+      + tickit_window_setctl_int(3)
+      + tickit_window_ctlname(3)
+      + tickit_window_lookup_ctl(3)
+      + tickit_window_ctltype(3)
+  * Added toplevel Tickit instance controls
+      + tickit_getctl_int(3)
+      + tickit_setctl_int(3)
+      + tickit_ctlname(3)
+      + tickit_lookup_ctl(3)
+      + tickit_ctltype(3)
+  * TICKIT_PEN_UNDER type is now integer, supports single, double, wavy underline
+  * Fixed various example/demo-*.c files so they work again
+  * Added experimental new ability to provide event loop hooks for other event
+    loops
+  * Deleted the deprecated tickit_string_* functions that were renamed to
+    tickit_utf8_*
+  * Renumbered TICKIT_PEN_* constants to start from 1; lists can end with 0
+  * Use termios to know what backspace (VERASE) character is, rather than
+    relying on terminfo - experience from vim, neovim, etc.. is that this is
+    often more reliable
+  * tickit_watch_* callbacks now receive an info pointer, to match the calling
+    style of other object bindings
+
+2018-01-05 14:47  0.2
+  * Added tickit_window_{is,set}_steal_focus(3)
+  * Added entire toplevel Tickit instance
+  * New bind_events API style - one event + flags, instead of bitmask
+  * Renamed:
+     + tickit_string_seqlen   => tickit_utf8_seqlen
+     + tickit_string_putchar  => tickit_utf8_put
+     + tickit_string_mbswidth => tickit_utf8_mbswidth
+     + tickit_string_byte2col => tickit_utf8_byte2col
+     + tickit_string_col2byte => tickit_utf8_col2byte
+     + tickit_string_count*   => tickit_utf8_count*
+  * Added TickitString
+  * Added tickit_rectset_get_rect(3)
+  * Added tickit_renderbuffer_skiprect(3)
+  * Added tickit_renderbuffer_moverect(3)
+  * Added tickit_term_ctlname(3) and tickit_term_lookup_ctl(3)
+  * Added tickit_term_pause(3), tickit_term_resume(3)
+  * Added secondary RGB8 pen attributes
+  * Support RGB8 in xterm driver

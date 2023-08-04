@@ -308,7 +308,7 @@ LAYOUTS(XLAYOUT)
 #include "layouts.c"
 #include "config.c"
 #include "vt.c"
-#include "lib/utf8.h"
+#include "lib/libvterm/src/utf8.h"
 
 /* functions */
 static void curkeyscpy(const char *str) {

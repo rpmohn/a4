@@ -4,7 +4,7 @@
 #include <strings.h>
 #include <stdlib.h>
 
-#include "lib/ini.h"
+#include "lib/inih/ini.h"
 
 #define LENGTH(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define DELIMS " 	"

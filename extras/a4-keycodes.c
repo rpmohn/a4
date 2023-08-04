@@ -11,7 +11,7 @@
 
 TickitTerm *tt;
 char curkey[256];
-unsigned int line = 0;
+int line = 0;
 
 static void curkey_mouse(TickitMouseEventInfo *m) {
 	char *ck = curkey;
@@ -33,6 +33,11 @@ static void curkey_mouse(TickitMouseEventInfo *m) {
 			break;
 		case TICKIT_MOUSEEV_RELEASE:
 			sprintf(ck, "release-%d", m->button);
+			break;
+		case TICKIT_MOUSEEV_DRAG_START:
+		case TICKIT_MOUSEEV_DRAG_STOP:
+		case TICKIT_MOUSEEV_DRAG_DROP:
+		case TICKIT_MOUSEEV_DRAG_OUTSIDE:
 			break;
 	}
 }
