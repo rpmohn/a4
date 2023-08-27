@@ -1685,6 +1685,17 @@ static void noaction(char *args[]) {
 }
 
 static void create(char *args[]) {
+	if (args && args[0] && ARGS0EQ("nextfree")) {  /* special arg "nextfree" */
+		// show first unused tag
+		unsigned int occupied = 0;
+		for (TFrame *tframe = tframes; tframe; tframe = tframe->next) {
+			occupied |= tframe->tags;
+		}
+		unsigned int i;
+		for (i = 0; i < config.ntags && (occupied & (1 << i)); i++);
+		if (i < config.ntags)
+			viewset(config.tagnames[i]);
+	}
 	create_tframe();
 	arrange();
 }
