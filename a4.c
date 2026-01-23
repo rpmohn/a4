@@ -647,6 +647,7 @@ static int sigint_rootwin(Tickit *t, TickitEventFlags flags, void *info, void *d
 static int sigwinch_rootwin(Tickit *t, TickitEventFlags flags, void *info, void *data) {
 	tickit_term_setctl_int(root.tt, TICKIT_TERMCTL_MOUSE, TICKIT_TERM_MOUSEMODE_OFF);
 	tickit_term_setctl_int(root.tt, TICKIT_TERMCTL_MOUSE, TICKIT_TERM_MOUSEMODE_DRAG);
+	tickit_term_print(root.tt, "\033[r"); /* Reset scroll region (DECSTBM) to full screen */
 	tickit_term_clear(root.tt);
 	arrange();
 	return 1;

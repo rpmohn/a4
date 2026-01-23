@@ -40,26 +40,9 @@ static int vts_damage(VTermRect vrect, void *user) {
 }
 
 static int vts_moverect(VTermRect dst, VTermRect src, void *user) {
-	TFrame *tframe = user;
-	//DEBUG_LOGF("Uvr", "vts_moverect DST start_row %d, start_col %d, end_row %d, end_col %d",
-	//		dst.start_row, dst.start_col, dst.end_row, dst.end_col);
-	//DEBUG_LOGF("Uvr", "vts_moverect SRC  start_row %d, start_col %d, end_row %d, end_col %d",
-	//		src.start_row, src.start_col, src.end_row, src.end_col);
-
-	// FIXME: If returns false must redraw entire win? Could it be negative?
-	if(src.start_col == dst.start_col) {
-		tickit_window_scroll(tframe->termwin, src.start_row - dst.start_row, 0);
-	} else {
-		TickitRect r = {
-			.top = src.start_row,
-			.left = MIN(src.start_col, dst.start_col),
-			.lines = (src.end_row - src.start_row),
-			.cols = (src.end_col - src.start_col)
-		};
-		tickit_window_scrollrect(tframe->termwin, &r, src.start_row - dst.start_row, src.start_col - dst.start_col, NULL);
-	}
-
-	return 1;
+	/* Return 0 to indicate we can't handle the scroll, so libvterm will
+	 * fall back to calling the damage callback with updated cell contents. */
+	return 0;
 }
 
 static int vts_movecursor(VTermPos pos, VTermPos oldpos, int visible, void *user) {
