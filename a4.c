@@ -358,9 +358,9 @@ static void curkeymouse(TickitMouseEventInfo *m) {
 }
 
 static MWin *get_mwin_by_coord(int line, int col) {
-	MWin *mw;
+	static MWin mw;
 
-	mw = calloc(1, sizeof(MWin));
+	memset(&mw, 0, sizeof mw);
 
 	if (sel && isarrange(fullscreen)) {
 		int top = frame.rect.top + sel->rect.top;
@@ -368,8 +368,8 @@ static MWin *get_mwin_by_coord(int line, int col) {
 		int left = sel->rect.left;
 		int right = left + sel->rect.cols;
 		if ((col >= left) && (col < right) && (line >= top) && (line < bottom)) {
-			mw->type = (line == top ? TBAR : TERM);
-			mw->tframe = sel;
+			mw.type = (line == top ? TBAR : TERM);
+			mw.tframe = sel;
 		}
 	} else {
 		for (TFrame *tframe = nextvisible(tframes); tframe; tframe = nextvisible(tframe->next)) {
@@ -378,34 +378,34 @@ static MWin *get_mwin_by_coord(int line, int col) {
 			int left = tframe->rect.left;
 			int right = left + tframe->rect.cols;
 			if ((col >= left) && (col < right) && (line >= top) && (line < bottom)) {
-				mw->type = (line == top ? TBAR : TERM);
-				mw->tframe = tframe;
+				mw.type = (line == top ? TBAR : TERM);
+				mw.tframe = tframe;
 				break;
 			}
 		}
 	}
 
-	if (mw->type == NONE) {
+	if (mw.type == NONE) {
 		if ((line >= sbar.rect.top) && (line < sbar.rect.top + sbar.rect.lines)) {
 			//search for sbar, tag, layout
-			mw->type = SBAR;
+			mw.type = SBAR;
 			int sbarcol = 0;
 			for (unsigned int i = 0; i < config.ntags; i++) {
 				sbarcol += config.taglens[i];
 				if (col < sbarcol) {
-					mw->type = TAG;
-					mw->tag = i;
+					mw.type = TAG;
+					mw.tag = i;
 					break;
 				}
 			}
-			if (mw->type == SBAR && col < (sbarcol + layoutsymlen)) {
-				mw->type = LAYOUT;
+			if (mw.type == SBAR && col < (sbarcol + layoutsymlen)) {
+				mw.type = LAYOUT;
 			}
 		} else if (sel)
-			mw->type = FRAME;
+			mw.type = FRAME;
 	}
 
-	return mw;
+	return &mw;
 }
 
 static TFrame *get_tframe_by_coord(int line, int col) {
@@ -606,7 +606,6 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 
 	if ((mw = get_mwin_by_coord(m->line, m->col))) {
 		memcpy(&mwin, mw, sizeof(MWin));
-		free(mw);
 		//DEBUG_LOGF("Umt", "mwin.type = %d, mwin.tframe = %p", mwin.type, mwin.tframe);
 	}
 	curkeymouse(m);
