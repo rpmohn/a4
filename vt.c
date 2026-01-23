@@ -387,15 +387,18 @@ static void get_vterm(TFrame *tframe) {
 	vterm_screen_set_callbacks(tframe->vts, &vtermscreencallbacks, tframe);
 
 	tframe->sb_current = tframe->sb_offset = 0;
-	tframe->sb_buffer = malloc(sizeof(ScrollbackLine *) * config.scroll_history);
+	tframe->sb_buffer = calloc(config.scroll_history, sizeof(ScrollbackLine *));
 
 	tframe->worker_pid = vt_forkpty(tframe, shell, pargs, NULL);
 	tframe->watchio = tickit_watch_io(root.tickit, tframe->controller_ptyfd, TICKIT_IO_IN|TICKIT_IO_HUP, 0, &pty_read, tframe);
 }
 
 static void free_vterm(TFrame *tframe) {
-	if (tframe->sb_buffer)
+	if (tframe->sb_buffer) {
+		for (int i = 0; i < tframe->sb_current; i++)
+			free(tframe->sb_buffer[i]);
 		free(tframe->sb_buffer);
+	}
 	if (tframe->watchio)
 		tickit_watch_cancel(root.tickit, tframe->watchio);
 	//DEBUG_LOGF("Ufv", "free_vterm vt = %p", tframe->vt);
