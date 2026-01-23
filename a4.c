@@ -1617,6 +1617,11 @@ static int resize_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 	TickitGeomchangeEventInfo *info = _info;
 	TickitRect rect = info->rect;
 	TFrame *tframe = data;
+
+	/* Skip resize for minimized windows to avoid vterm cursor reflow crash */
+	if (tframe->minimized)
+		return 1;
+
 	tframe->termrect.lines = MAX(rect.lines, 2); // FIXME: why does this require 2 and not 1?
 	tframe->termrect.cols = MAX(rect.cols, 2);   // FIXME: Test if this is required or not.
 	DEBUG_LOGF("Urt", "resize_termwin, lines = %d, cols = %d", tframe->termrect.lines, tframe->termrect.cols);
