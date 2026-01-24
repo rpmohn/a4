@@ -1911,7 +1911,7 @@ static void parse_args(int argc, char *argv[]) {
 						startups = false;
 						break;
 					case 'v':
-						fprintf(stderr, "%s %s © 2022-2023 Ross P. Mohn\n", application_name, VERSION);
+						fprintf(stderr, "%s %s © 2022-2026 Ross P. Mohn\n", application_name, VERSION);
 						exit(EXIT_SUCCESS);
 					default:
 						usage("Invalid option -%c", argv[arg][1]);
