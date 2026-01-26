@@ -7,6 +7,9 @@
 #include "lib/inih/ini.h"
 
 #define LENGTH(arr) (sizeof(arr) / sizeof((arr)[0]))
+#ifndef CTRL
+#define CTRL(k) ((k) & 0x1F)
+#endif
 #define DELIMS " 	"
 
 /* typedefs */
@@ -137,6 +140,8 @@ static struct {
 
 static char *a4configfnameptr;
 static Config config;
+static char *ini_session_name = NULL;
+static char ini_detach_key = 0;
 static Pair colornames[] = {
 #include "lib/rgb.inc"
 	};
@@ -828,6 +833,20 @@ static bool special_keyword(Config *cfg, const char *name, const char *value) {
 static int a4_ini_handler(void *user, const char *section, const char *name, const char *value) {
 	Config *cfg = (Config *)user;
 
+	/* Handle session settings from top section */
+	if (section[0] == '\0' && strcasecmp(name, "session") == 0) {
+		if (ini_session_name)
+			free(ini_session_name);
+		ini_session_name = strdup(value);
+		return 1;
+	} else if (section[0] == '\0' && strcasecmp(name, "detach_key") == 0) {
+		if (value[0] == '^' && value[1])
+			ini_detach_key = CTRL(value[1]);
+		else
+			ini_detach_key = value[0];
+		return 1;
+	}
+
 	if (strcasecmp(name, "include") == 0) {
 		include_config(cfg, (char *)value);
 
@@ -1076,4 +1095,77 @@ static int parse_config(Config *cfg) {
 	postset_configs(cfg);
 
 	return 1;
+}
+
+/* Forward declaration for recursive include */
+static int session_ini_handler(void *user, const char *section, const char *name, const char *value);
+
+/* Include handler for session config parsing */
+static void session_include_config(char *fname) {
+	char includefname[PATH_MAX];
+	char *ptr = fname;
+
+	if (fname[0] != '/') {
+		char *testpath = strdup(a4configfnameptr);
+		char *slash = strrchr(testpath, '/');
+		if (slash)
+			slash[0] = 0;
+		buildpath(includefname, testpath, "/", fname);
+		if (!file_exists(includefname))
+			getconfigfname(includefname, fname);
+		free(testpath);
+		ptr = includefname;
+	}
+
+	ini_parse(ptr, session_ini_handler, NULL);
+}
+
+/* Minimal handler for session-related options only */
+static int session_ini_handler(void *user, const char *section, const char *name, const char *value) {
+	(void)user;
+
+	/* Handle includes */
+	if (strcasecmp(name, "include") == 0) {
+		session_include_config((char *)value);
+		return 1;
+	}
+
+	/* Only handle session settings from top section */
+	if (section[0] == '\0' && strcasecmp(name, "session") == 0) {
+		if (ini_session_name)
+			free(ini_session_name);
+		ini_session_name = strdup(value);
+	} else if (section[0] == '\0' && strcasecmp(name, "detach_key") == 0) {
+		if (value[0] == '^' && value[1])
+			ini_detach_key = CTRL(value[1]);
+		else
+			ini_detach_key = value[0];
+	}
+	/* Return 1 for all entries to continue parsing (ignore unknown) */
+	return 1;
+}
+
+/* Parse just the session-related options from config file (called early) */
+static void parse_session_config(void) {
+	char fname[PATH_MAX];
+
+	a4configfnameptr = a4configfname;
+
+	if (!a4configfname) {
+		getconfigfname(fname, "a4.ini");
+		a4configfnameptr = fname;
+	}
+
+	/* Parse with minimal handler that only extracts session settings */
+	ini_parse(a4configfnameptr, session_ini_handler, NULL);
+}
+
+/* Get session name from config file (NULL if not set) */
+static const char *get_ini_session_name(void) {
+	return ini_session_name;
+}
+
+/* Get detach key from config file (0 if not set) */
+static char get_ini_detach_key(void) {
+	return ini_detach_key;
 }

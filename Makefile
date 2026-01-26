@@ -19,7 +19,7 @@ CFLAGS		= -std=c99 -Wall
 DEBUG		= -UNDEBUG -O0 -g -ggdb -Wextra -Wno-unused-parameter -fdiagnostics-color=always
 LDLIBS		= -lutil
 
-a4_obj		= a4.o
+a4_obj		= a4.o session.o
 inih_obj	= lib/inih/ini.o
 uni_obj		= lib/unibilium/unibilium.o lib/unibilium/uninames.o lib/unibilium/uniutil.o
 termkey_obj	= lib/libtermkey/termkey.o lib/libtermkey/driver-csi.o lib/libtermkey/driver-ti.o
@@ -38,7 +38,9 @@ all: a4 extras/a4-keycodes
 a4: $(obj)
 	$(CC) $(LDFLAGS) -o $@ $(obj) $(LDLIBS)
 
-a4.o: config.c layouts.c utilities.c vt.c lib/keynames.inc lib/rgb.inc lib/libvterm/src/utf8.h
+a4.o: config.c layouts.c utilities.c vt.c lib/keynames.inc lib/rgb.inc lib/libvterm/src/utf8.h session.h
+
+session.o: session.h
 
 extras/a4-keycodes: extras/a4-keycodes.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $? $(LDFLAGS) $(uni_obj) $(termkey_obj) $(tickit_obj) -o $@

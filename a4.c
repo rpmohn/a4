@@ -18,6 +18,8 @@
 #include <tickit.h>
 #include <vterm.h>
 
+#include "session.h"
+
 /* X macro expansion functions */
 #define XACTION(n,...) static void n(char *args[]);
 #define XLAYOUT(n,...) static void n(void);
@@ -192,6 +194,9 @@ static unsigned int sbar_cmd_num = 0; /* current statusbar command number */
 
 static const char *shell;
 static volatile sig_atomic_t running = true;
+static SessionConfig session_cfg;
+static bool sessions_list = false;
+static bool session_attach = false;
 
 static KeyCombo curkeys;
 static unsigned int curkeys_index = 0;
@@ -1882,12 +1887,19 @@ static void usage(const char *errstr, ...) {
 		va_end(ap);
 		fprintf(stderr, "\n");
 	}
-	fprintf(stderr, "usage: %s [-h|-?] [-i file] [-s] [-v]\n", application_name);
+	fprintf(stderr, "usage: %s [-a name] [-l] [-i file] [-s] [-v]\n", application_name);
+	fprintf(stderr, "  -a name    attach to session, create if doesn't exist\n");
+	fprintf(stderr, "  -l         list available sessions\n");
+	fprintf(stderr, "  -i file    use INI file\n");
+	fprintf(stderr, "  -s         suppress all startup actions in INI files\n");
+	fprintf(stderr, "  -v         display version\n");
 	exit(EXIT_FAILURE);
 }
 
 static void parse_args(int argc, char *argv[]) {
 	const char *name = argv[0];
+
+	session_config_init(&session_cfg);
 
 	if (name && (name = strrchr(name, '/')))
 		application_name = name + 1;
@@ -1901,17 +1913,26 @@ static void parse_args(int argc, char *argv[]) {
 					usage("Missing argument to -i");
 				a4configfname = argv[++arg];
 				break;
+			} else if (argv[arg][1] == 'a') {
+				if ((arg + 1) >= argc || argv[arg][2] != '\0')
+					usage("Missing argument to -a");
+				session_cfg.name = argv[++arg];
+				session_attach = true;
+				break;
 			} else {
 				switch (argv[arg][1]) {
 					case 'h':
 					case '?':
 						usage(NULL);
 						break;
+					case 'l':
+						sessions_list = true;
+						break;
 					case 's':
 						startups = false;
 						break;
 					case 'v':
-						fprintf(stderr, "%s %s © 2022-2023 Ross P. Mohn\n", application_name, VERSION);
+						fprintf(stderr, "%s %s © 2022-2026 Ross P. Mohn\n", application_name, VERSION);
 						exit(EXIT_SUCCESS);
 					default:
 						usage("Invalid option -%c", argv[arg][1]);
@@ -1931,6 +1952,34 @@ int main(int argc, char *argv[]) {
 		usage("Cannot run a4 inside of a4");
 	setenv("A4", VERSION, 1);
 	parse_args(argc, argv);
+
+	/* Parse config file for session settings (before session handling) */
+	/* Skip if already running inside a session (A4_SESSION is set) */
+	if (!getenv("A4_SESSION")) {
+		parse_session_config();
+
+		/* Apply ini session settings if not overridden by command line */
+		if (!session_attach) {
+			const char *ini_session = get_ini_session_name();
+			if (ini_session && ini_session[0])
+				session_cfg.name = ini_session;
+		}
+		char ini_key = get_ini_detach_key();
+		if (ini_key)
+			session_cfg.detach_key = ini_key;
+	}
+
+	/* List sessions and exit */
+	if (sessions_list)
+		return session_list();
+
+	/* Handle session modes - session_main handles everything and returns */
+	if (session_cfg.name) {
+		int result = session_main(&session_cfg, argc, argv);
+		/* -1 = detached (success), other values are exit status */
+		return (result == -1) ? 0 : result;
+	}
+
 	startup_a4();
 
 	/* putting tickit_tick in my own loop avoids the SIGINT capture in tickit_run */
