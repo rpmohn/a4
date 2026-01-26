@@ -75,7 +75,7 @@ no need to compile any additional libraries.
 tgz packages are available from the [Tags] page.
 
 ```sh
-git clone https://github.com/rpmohn/a4
+git clone git@github.com:rpmohn/a4.git
 cd a4
 make && sudo make install
 ```
