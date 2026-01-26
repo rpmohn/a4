@@ -1947,9 +1947,16 @@ int main(int argc, char *argv[]) {
 #ifndef NDEBUG
 	tickit_debug_init();
 #endif
-	/* FIXME: should be able to run a4 inside of a4, but crashes */
-	if (getenv("A4"))
-		usage("Cannot run a4 inside of a4");
+	/* Block running a4 inside of a4, except for -h, -?, -l, -v */
+	if (getenv("A4")) {
+		bool safe = false;
+		for (int i = 1; i < argc; i++)
+			if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-?") ||
+			    !strcmp(argv[i], "-l") || !strcmp(argv[i], "-v"))
+				safe = true;
+		if (!safe)
+			usage("Cannot run a4 inside of a4");
+	}
 	setenv("A4", VERSION, 1);
 	parse_args(argc, argv);
 
