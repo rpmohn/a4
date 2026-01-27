@@ -227,10 +227,10 @@ static bool chpen(TickitTermDriver *ttd, const TickitPen *delta, const TickitPen
 {
   struct XTermDriver *xd = (struct XTermDriver *)ttd;
 
-  /* There can be at most 16 SGR parameters; 5 from each of 2 colours, and
-   * 6 single attributes
+  /* Max SGR parameters: 5 from each of 2 colours (RGB8), 2 for underline,
+   * 1 each for altfont/sizepos, and 5 boolean attributes = 19
    */
-  int params[16];
+  int params[19];
   int pindex = 0;
 
   for(TickitPenAttr attr = 1; attr < TICKIT_N_PEN_ATTRS; attr++) {
