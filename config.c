@@ -734,8 +734,8 @@ static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const
 			i++, tok = strtok_r(NULL, DELIMS, &save)) {
 		if ((click = strstr(tok, "click-"))) {
 			int offset = click - tok;
-			sprintf(b->keys[i], "%.*spress%s", offset, tok, tok + offset + 5);
-			sprintf(b->keys[++i], "%.*srelease%s", offset, tok, tok + offset + 5);
+			snprintf(b->keys[i], MAX_KEYNAME, "%.*spress%s", offset, tok, tok + offset + 5);
+			snprintf(b->keys[++i], MAX_KEYNAME, "%.*srelease%s", offset, tok, tok + offset + 5);
 		} else
 			strncpy(b->keys[i], tok, MAX_KEYNAME);
 	}
@@ -974,7 +974,8 @@ static char *getconfigfname(char *found, char *search) {
 	if (configfname[0] == '\0' || !file_exists(configfname))
 		buildpath(configfname, SYSCONFDIR, "/a4/", search);
 
-	strcpy(found, configfname);
+	strncpy(found, configfname, PATH_MAX - 1);
+	found[PATH_MAX - 1] = '\0';
 	//DEBUG_LOGF("Ugc", "getconfigfname returning ::%s::", configfname);
 	return found;
 }

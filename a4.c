@@ -335,24 +335,30 @@ static void curkeyscpy(const char *str) {
 static void curkeymouse(TickitMouseEventInfo *m) {
 	char str[MAX_KEYNAME];
 	char *s = str;
+	size_t remaining = sizeof(str);
+	int n;
 
-	s += sprintf(s, "%s%s%s",
+	n = snprintf(s, remaining, "%s%s%s",
 			(m->mod & TICKIT_MOD_ALT ? "M-" : ""),
 			(m->mod & TICKIT_MOD_CTRL ? "C-" : ""),
 			(m->mod & TICKIT_MOD_SHIFT ? "S-" : ""));
+	if (n > 0 && (size_t)n < remaining) {
+		s += n;
+		remaining -= n;
+	}
 
 	switch(m->type) {
 		case TICKIT_MOUSEEV_WHEEL:
-			sprintf(s, "wheel-%s", (m->button == TICKIT_MOUSEWHEEL_UP ? "up" : "dn"));
+			snprintf(s, remaining, "wheel-%s", (m->button == TICKIT_MOUSEWHEEL_UP ? "up" : "dn"));
 			break;
 		case TICKIT_MOUSEEV_PRESS:
-			sprintf(s, "press-%d", m->button);
+			snprintf(s, remaining, "press-%d", m->button);
 			break;
 		case TICKIT_MOUSEEV_DRAG:
-			sprintf(s, "drag-%d", m->button);
+			snprintf(s, remaining, "drag-%d", m->button);
 			break;
 		case TICKIT_MOUSEEV_RELEASE:
-			sprintf(s, "release-%d", m->button);
+			snprintf(s, remaining, "release-%d", m->button);
 			break;
 		default:
 			return;
@@ -529,7 +535,8 @@ static void keypress(TickitKeyEventInfo *key, const char *seq) {
 		if (is_content_visible(tframe) && (tframe == selected || tframe->groupedfocus) && !tframe->readonly) {
 			if (seq != NULL) {
 				bytes = strlen(seq);
-				strcpy(buffer, seq);
+				strncpy(buffer, seq, MAX_STR - 1);
+				buffer[MAX_STR - 1] = '\0';
 			} else {
 				if (key->type == TICKIT_KEYEV_TEXT) {
 					uint32_t codepoint = str_to_codepoint(key->str);
