@@ -970,6 +970,10 @@ static char *getconfigfname(char *found, char *search) {
 	else if (home)
 		buildpath(configfname, home, "/.config/a4/", search);
 
+	/* else look in $HOME/.local/share/a4/ */
+	if (configfname[0] == '\0' || !file_exists(configfname) && home)
+		buildpath(configfname, home, "/.local/share/a4/", search);
+
 	/* If still no file, look in SYSCONFDIR/a4/ */
 	if (configfname[0] == '\0' || !file_exists(configfname))
 		buildpath(configfname, SYSCONFDIR, "/a4/", search);
