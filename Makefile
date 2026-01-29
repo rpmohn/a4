@@ -4,7 +4,7 @@
 .SUFFIXES: .c .o
 .c.o:
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
-.PHONY: all debug clean distclean install uninstall
+.PHONY: all debug portable portable-arch release clean distclean install uninstall
 
 PREFIX		= /usr/local
 MANPREFIX	= $(PREFIX)/share/man
@@ -12,6 +12,8 @@ SYSCONFDIR	= $(PREFIX)/share
 DOCDIR		= $(PREFIX)/share/doc
 
 VERSION		!= git describe --always --dirty 2>/dev/null || echo "v0.2.4"
+DIST_NAME	= a4-$(VERSION)
+
 CPPFLAGS	= -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -D_XOPEN_SOURCE_EXTENDED \
 			  -DNDEBUG -DSYSCONFDIR='"$(SYSCONFDIR)"' $(CPPFLGS) -DVERSION='"$(VERSION)"' \
 			  $(unibilium_flags) $(termkey_flags) $(tickit_flags) $(vterm_flags)
@@ -48,11 +50,40 @@ extras/a4-keycodes: extras/a4-keycodes.c
 debug: clean
 	@$(MAKE) CFLAGS='$(CFLAGS) $(DEBUG)' a4
 
+portable: distclean
+	@$(MAKE) portable-arch ARCH=x86_64 ZIG_TARGET=x86_64-linux-gnu.2.17
+	@$(MAKE) portable-arch ARCH=arm64 ZIG_TARGET=aarch64-linux-gnu.2.17
+	@$(MAKE) portable-arch ARCH=armv7 ZIG_TARGET=arm-linux-gnueabihf.2.17
+
+portable-arch:
+	@$(MAKE) CC='zig cc -target $(ZIG_TARGET)' a4
+	mv a4 a4-$(ARCH)
+	@$(MAKE) CC='zig cc -target $(ZIG_TARGET)' extras/a4-keycodes
+	mv extras/a4-keycodes extras/a4-keycodes-$(ARCH)
+	rm -f $(obj)
+
+release: portable
+	rm -rf release && mkdir -p release
+	for arch in x86_64 arm64 armv7; do \
+		rm -rf $(DIST_NAME)-$$arch && mkdir -p $(DIST_NAME)-$$arch; \
+		cp -p a4-$$arch $(DIST_NAME)-$$arch/a4; \
+		cp -p extras/a4-keycodes-$$arch $(DIST_NAME)-$$arch/a4-keycodes; \
+		cp -p etc/*.ini $(DIST_NAME)-$$arch/; \
+		sed "s/VERSION/$(VERSION)/g" < a4.1 > $(DIST_NAME)-$$arch/a4.1; \
+		tar -czvf release/$(DIST_NAME)-$$arch.tar.gz $(DIST_NAME)-$$arch; \
+		rm -rf $(DIST_NAME)-$$arch; \
+	done
+	sed "s/VERSION/$(VERSION)/g" < extras/install.sh > release/install.sh
+	sed "s/VERSION/$(VERSION)/g" < extras/install-local.sh > release/install-local.sh
+	cd release && sha256sum *.tar.gz install.sh install-local.sh > checksums.txt
+
 clean:
 	rm -f a4 extras/a4-keycodes $(a4_obj)
 
 distclean: clean
 	rm -f $(obj)
+	rm -f a4-x86_64 a4-arm64 a4-armv7 extras/a4-keycodes-x86_64 extras/a4-keycodes-arm64 extras/a4-keycodes-armv7
+	rm -rf $(DIST_NAME)-* release
 
 #### inih library, commit d6e9d1b 20221202 https://github.com/benhoyt/inih.git ####
 lib/inih/ini.o: lib/inih/ini.h
