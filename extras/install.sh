@@ -2,7 +2,7 @@
 set -e  # exit on any error
 
 if [ "$EUID" -ne 0 ]; then
-    echo "${0##*/} must be run using sudo or as root"
+    echo "Must run ${0##*/} with sudo or as root"
     exit 1
 fi
 
