@@ -7,9 +7,6 @@
 #include "lib/inih/ini.h"
 
 #define LENGTH(arr) (sizeof(arr) / sizeof((arr)[0]))
-#ifndef CTRL
-#define CTRL(k) ((k) & 0x1F)
-#endif
 #define DELIMS " 	"
 
 /* typedefs */
@@ -113,6 +110,7 @@ static void create_startup(unsigned int *nbindings, KeyBinding **bindings, const
 static void expand_num_keybinding_action(Config *cfg, const char *kstr, const char *astr);
 static void expand_tag_keybinding_action(Config *cfg, const char *kstr, const char *astr);
 static bool special_keyword(Config *cfg, const char *name, const char *value);
+static bool parse_session_setting(const char *section, const char *name, const char *value);
 static int a4_ini_handler(void *user, const char *section, const char *name, const char *value);
 static char *buildpath(char *dst, const char *src1, const char *src2, const char *src3);
 static bool file_exists(char *fname);
@@ -830,22 +828,32 @@ static bool special_keyword(Config *cfg, const char *name, const char *value) {
 	return false;
 }
 
-static int a4_ini_handler(void *user, const char *section, const char *name, const char *value) {
-	Config *cfg = (Config *)user;
-
-	/* Handle session settings from top section */
-	if (section[0] == '\0' && strcasecmp(name, "session") == 0) {
+/* Parse session settings (session, detach_key) - returns true if handled */
+static bool parse_session_setting(const char *section, const char *name, const char *value) {
+	if (section[0] != '\0')
+		return false;
+	if (strcasecmp(name, "session") == 0) {
 		if (ini_session_name)
 			free(ini_session_name);
 		ini_session_name = strdup(value);
-		return 1;
-	} else if (section[0] == '\0' && strcasecmp(name, "detach_key") == 0) {
-		if (value[0] == '^' && value[1])
-			ini_detach_key = CTRL(value[1]);
-		else
+		return true;
+	} else if (strcasecmp(name, "detach_key") == 0) {
+		if (value[0] == 'C' && value[1] == '-' && value[2] && !value[3])
+			ini_detach_key = CTRL(value[2]);
+		else if (value[0] && !value[1])
 			ini_detach_key = value[0];
-		return 1;
+		else
+			error("Invalid detach_key \"%s\" in configuration file (use single char or C-x)", value);
+		return true;
 	}
+	return false;
+}
+
+static int a4_ini_handler(void *user, const char *section, const char *name, const char *value) {
+	Config *cfg = (Config *)user;
+
+	if (parse_session_setting(section, name, value))
+		return 1;
 
 	if (strcasecmp(name, "include") == 0) {
 		include_config(cfg, (char *)value);
@@ -967,12 +975,13 @@ static char *getconfigfname(char *found, char *search) {
 		buildpath(configfname, xdg_config_home, "/a4/", search);
 
 	/* else look in $HOME/.config/a4/ */
-	else if (home)
+	else if (home) {
 		buildpath(configfname, home, "/.config/a4/", search);
 
-	/* else look in $HOME/.local/share/a4/ */
-	if (configfname[0] == '\0' || !file_exists(configfname) && home)
-		buildpath(configfname, home, "/.local/share/a4/", search);
+		/* If still no file, look in $HOME/.local/share/a4/ */
+		if (configfname[0] == '\0' || !file_exists(configfname))
+			buildpath(configfname, home, "/.local/share/a4/", search);
+	}
 
 	/* If still no file, look in SYSCONFDIR/a4/ */
 	if (configfname[0] == '\0' || !file_exists(configfname))
@@ -1129,25 +1138,12 @@ static void session_include_config(char *fname) {
 static int session_ini_handler(void *user, const char *section, const char *name, const char *value) {
 	(void)user;
 
-	/* Handle includes */
-	if (strcasecmp(name, "include") == 0) {
+	if (strcasecmp(name, "include") == 0)
 		session_include_config((char *)value);
-		return 1;
-	}
+	else
+		parse_session_setting(section, name, value);
 
-	/* Only handle session settings from top section */
-	if (section[0] == '\0' && strcasecmp(name, "session") == 0) {
-		if (ini_session_name)
-			free(ini_session_name);
-		ini_session_name = strdup(value);
-	} else if (section[0] == '\0' && strcasecmp(name, "detach_key") == 0) {
-		if (value[0] == '^' && value[1])
-			ini_detach_key = CTRL(value[1]);
-		else
-			ini_detach_key = value[0];
-	}
-	/* Return 1 for all entries to continue parsing (ignore unknown) */
-	return 1;
+	return 1;  /* Continue parsing (ignore unknown) */
 }
 
 /* Parse just the session-related options from config file (called early) */
