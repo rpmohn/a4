@@ -12,7 +12,6 @@ SYSCONFDIR	= $(PREFIX)/share
 DOCDIR		= $(PREFIX)/share/doc
 
 VERSION		!= git describe --always --dirty 2>/dev/null || echo "v0.2.4"
-DIST_NAME	= a4-$(VERSION)
 
 CPPFLAGS	= -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -D_XOPEN_SOURCE_EXTENDED \
 			  -DNDEBUG -DSYSCONFDIR='"$(SYSCONFDIR)"' $(CPPFLGS) -DVERSION='"$(VERSION)"' \
@@ -65,13 +64,13 @@ portable-arch:
 release: portable
 	rm -rf release && mkdir -p release
 	for arch in x86_64 arm64 armv7; do \
-		rm -rf $(DIST_NAME)-$$arch && mkdir -p $(DIST_NAME)-$$arch; \
-		cp -p a4-$$arch $(DIST_NAME)-$$arch/a4; \
-		cp -p extras/a4-keycodes-$$arch $(DIST_NAME)-$$arch/a4-keycodes; \
-		cp -p etc/*.ini $(DIST_NAME)-$$arch/; \
-		sed "s/VERSION/$(VERSION)/g" < a4.1 > $(DIST_NAME)-$$arch/a4.1; \
-		tar -czvf release/$(DIST_NAME)-$$arch.tar.gz $(DIST_NAME)-$$arch; \
-		rm -rf $(DIST_NAME)-$$arch; \
+		rm -rf a4-$(VERSION)-$$arch && mkdir -p a4-$(VERSION)-$$arch; \
+		cp -p a4-$$arch a4-$(VERSION)-$$arch/a4; \
+		cp -p extras/a4-keycodes-$$arch a4-$(VERSION)-$$arch/a4-keycodes; \
+		cp -p etc/*.ini a4-$(VERSION)-$$arch/; \
+		sed "s/VERSION/$(VERSION)/g" < a4.1 > a4-$(VERSION)-$$arch/a4.1; \
+		tar -czvf release/a4-$(VERSION)-$$arch.tar.gz a4-$(VERSION)-$$arch; \
+		rm -rf a4-$(VERSION)-$$arch; \
 	done
 	sed "s/VERSION/$(VERSION)/g" < extras/install.sh > release/install.sh
 	sed "s/VERSION/$(VERSION)/g" < extras/install-local.sh > release/install-local.sh
@@ -83,7 +82,7 @@ clean:
 distclean: clean
 	rm -f $(obj)
 	rm -f a4-x86_64 a4-arm64 a4-armv7 extras/a4-keycodes-x86_64 extras/a4-keycodes-arm64 extras/a4-keycodes-armv7
-	rm -rf $(DIST_NAME)-* release
+	rm -rf a4-$(VERSION)-*.tar.gz release
 
 #### inih library, commit d6e9d1b 20221202 https://github.com/benhoyt/inih.git ####
 lib/inih/ini.o: lib/inih/ini.h
