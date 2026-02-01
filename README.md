@@ -8,11 +8,13 @@
 
 [a4] is a dynamic terminal window manager. One of eight tiling layouts is
 dynamically applied to all visible terminals. The terminal windows are grouped
-by tags making it easy to visually switch between contexts of work. Color
-schemes are dynamically applied to each terminal window, based on the text in
-its titlebar, helping the user to visually identify terminals based on
-attributes such as hostname, userid, and any other text programmed to display
-in the titlebar.
+by tags, making it easy to visually switch between contexts of work. a4
+automatically runs in a persistent session from which you can detach and
+reconnect. Any number of named sessions can exist simultaneously. Color schemes
+are dynamically applied to each terminal window, based on the text in its
+titlebar, helping the user to visually identify terminals based on attributes
+such as hostname, userid, and any other text programmed to display in the
+titlebar.
 
 Four of the eight layouts divide the screen into two areas, one for a zoomed
 window and the other for a stack of the remaining windows. These four layouts
@@ -38,12 +40,14 @@ the focus group.
 Terminal color schemes are dynamically applied by comparing the text of the
 terminal's title with an ordered set of user-defined color rules.
 
-A4 supports 24-bit truecolor and is configurable by editing an a4.ini file.
-It is a partial rewrite of [dvtm], which in turn is a text-based implementation
-of [dwm].
+a4 supports 24-bit truecolor and is configurable by editing an a4.ini file. It
+is a partial rewrite of [dvtm], which in turn is a text-based implementation of
+[dwm]. a4 now incorporates the concepts of the [abduco] project for persistence
+and session management.
 
 ![parts of the screen](extras/partsofscreen.png)
 
+<!--
 ## Distribution Packages
 
 #### [Void Linux]
@@ -67,38 +71,43 @@ Try it with `nix-shell`
 ``` sh
 nix-shell -p a4term
 ```
+-->
+
 ## a4 Compile and Install
 
-All required prerequisites are now included under the `lib` folder, so there is
-no need to compile any additional libraries.
+It is best to compile the code yourself, if possible. If you don't have that
+capability on your system there are two installation scripts available in
+[releases] that easily installs pre-compiled binaries for your machine
+architecture (`uname -m`). One script, `install.sh`, installs a4 for all users
+on your system and must be run with sudo or as root. The other,
+`install-local.sh`, requires no elevated privileges and just installs a4 in
+your own `$HOME/.local/` directories.
 
-tgz packages are available from the [Tags] page.
-
-```sh
+```
+# Option 1: Compile yourself
 git clone git@github.com:rpmohn/a4.git
 cd a4
 make && sudo make install
 ```
+```
+# Option 2: Install pre-compiled binary for all users with sudo
+curl -LO https://github.com/rpmohn/a4/releases/latest/download/install.sh
+chmod 700 ./install.sh
+sudo ./install.sh
+```
+```
+# Option 3: Install pre-compiled binary for yourself
+curl -fsSL https://github.com/rpmohn/a4/releases/latest/download/install-local.sh | bash
+```
 
 ## Notes
 
-### Persistence
-
-It is useful to run a4 with [abduco] so that you can disconnect and reconnect
-while your a4 session continues to run in the background. This is also helpful
-if you run a4 on remote machines since the session continues to run even if
-your connection to the machine is lost, and you can reconnect later without
-losing any of your work. Consider setting a alias such as this:
-```sh
-alias a4.abduco="abduco -A a4 a4 $@"
-```
-
 ### Mouse Support
 
-There's a configuration error in the xterm-256color file installed 
-by some Linux distros that causes the mouse to behave incorrectly by 
-printing characters to the terminal. If you experience this problem, 
-run the following command to put a local, patched copy of the file in 
+There's a configuration error in the xterm-256color file installed
+by some Linux distros that causes the mouse to behave incorrectly by
+printing characters to the terminal. If you experience this problem,
+run the following command to put a local, patched copy of the file in
 place for your login account:
 ```sh
 infocmp xterm-256color | sed -E 's/(kmous=\\E\[)</\1M/' | tic -o ~/.terminfo -
@@ -114,6 +123,6 @@ and default keyboard maps.
 [dvtm]: https://www.brain-dump.org/projects/dvtm/
 [dwm]: https://dwm.suckless.org/
 [abduco]: https://www.brain-dump.org/projects/abduco/
-[Tags]: https://github.com/rpmohn/a4/tags
+[releases]: https://github.com/rpmohn/a4/releases/
 [Void Linux]: https://voidlinux.org/packages/?arch=x86_64&q=a4
 [Nix]: https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=a4term

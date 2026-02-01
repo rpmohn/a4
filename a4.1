@@ -3,14 +3,17 @@
 a4 \- a dynamic terminal manager
 .SH SYNOPSIS
 .B a4
-.RB [ \-h | \-? "] [" \-i " file] [" \-s "] [" \-v ]
+.RB [ \-a " name] [" \-l "] [" \-i " file] [" \-s "] [" \-v ]
 .hw truecolor
 .SH DESCRIPTION
 .B a4
 is a dynamic terminal window manager. One of eight tiling layouts is dynamically applied to all visible terminals.
 The terminal windows are grouped by tags making it easy to visually switch between contexts of work.
-Color schemes are dynamically applied to each terminal window, based on the text in its titlebar, helping
-the user to visually identify terminals based on attributes such as hostname, userid, and any other text programmed to display in the titlebar.
+a4 automatically runs in a persistent session from which you can detach and reconnect.
+Any number of named sessions can exist simultaneously.
+Color schemes are dynamically applied to each terminal window, based on the text in its titlebar,
+helping the user to visually identify terminals based on attributes such as hostname, userid,
+and any other text programmed to display in the titlebar.
 .P
 Four of the eight layouts divide the screen into two areas, one for a zoomed
 window and the other for a stack of the remaining windows.
@@ -40,8 +43,11 @@ Terminal color schemes are dynamically applied by comparing the text of the
 terminal's title with an ordered set of user\-defined color rules.
 .SH OPTIONS
 .TP
-.B \-h, \-?
-Prints a brief usage message to stderr, then exits.
+.B \-a name
+Attach to named session, creating it if it doesn't exist.
+.TP
+.B \-l
+List all available sessions.
 .TP
 .B \-i file
 Use the specified INI file instead of the default file.
@@ -58,6 +64,9 @@ Everything is user-defined and may be customized to the user's liking (see
 .B CUSTOMIZATION
 below).
 .SS Keyboard commands
+.TP
+.B Ctrl\-\\\\
+Detach from the session.
 .TP
 .B Ctrl\-g c
 Create a new terminal window.
