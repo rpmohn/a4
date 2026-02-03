@@ -1630,8 +1630,9 @@ static int resize_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 	TickitRect rect = info->rect;
 	TFrame *tframe = data;
 
-	/* Skip resize for minimized windows to avoid vterm cursor reflow crash */
-	if (tframe->minimized)
+	/* Skip resize for minimized windows to avoid vterm cursor reflow crash,
+	 * but allow resize in fullscreen mode where dimensions are large */
+	if (tframe->minimized && !isarrange(fullscreen))
 		return 1;
 
 	tframe->termrect.lines = MAX(rect.lines, 2); // FIXME: why does this require 2 and not 1?
