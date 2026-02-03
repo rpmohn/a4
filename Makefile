@@ -11,7 +11,7 @@ MANPREFIX	= $(PREFIX)/share/man
 SYSCONFDIR	= $(PREFIX)/share
 DOCDIR		= $(PREFIX)/share/doc
 
-VERSION		!= git describe --always --dirty 2>/dev/null || echo "v1.0"
+VERSION		!= git describe --always --dirty 2>/dev/null || echo "v1.0.1"
 
 CPPFLAGS	= -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -D_XOPEN_SOURCE_EXTENDED \
 			  -DNDEBUG -DSYSCONFDIR='"$(SYSCONFDIR)"' $(CPPFLGS) -DVERSION='"$(VERSION)"' \
