@@ -29,9 +29,9 @@ tickit_obj	= lib/libtickit/src/bindings.o lib/libtickit/src/debug.o lib/libticki
 			  lib/libtickit/src/renderbuffer.o lib/libtickit/src/string.o lib/libtickit/src/term.o \
 			  lib/libtickit/src/termdriver-ti.o lib/libtickit/src/termdriver-xterm.o \
 			  lib/libtickit/src/tickit.o lib/libtickit/src/utf8.o lib/libtickit/src/window.o
-vterm_obj	= lib/libvterm/src/encoding.o lib/libvterm/src/keyboard.o lib/libvterm/src/parser.o \
-			  lib/libvterm/src/pen.o lib/libvterm/src/screen.o lib/libvterm/src/state.o \
-			  lib/libvterm/src/unicode.o lib/libvterm/src/vterm.o
+vterm_obj	= lib/libvterm/src/encoding.o lib/libvterm/src/keyboard.o lib/libvterm/src/mouse.o \
+			  lib/libvterm/src/parser.o lib/libvterm/src/pen.o lib/libvterm/src/screen.o \
+			  lib/libvterm/src/state.o lib/libvterm/src/unicode.o lib/libvterm/src/vterm.o
 obj			= $(a4_obj) $(inih_obj) $(uni_obj) $(termkey_obj) $(tickit_obj) $(vterm_obj)
 
 all: a4 extras/a4-keycodes
@@ -129,6 +129,8 @@ vterm_flags = -Ilib/libvterm/include
 lib/libvterm/src/encoding.o: lib/libvterm/include/vterm.h lib/libvterm/include/vterm_keycodes.h \
 	lib/libvterm/src/vterm_internal.h lib/libvterm/src/encoding/DECdrawing.inc lib/libvterm/src/encoding/uk.inc
 lib/libvterm/src/keyboard.o: lib/libvterm/include/vterm.h lib/libvterm/include/vterm_keycodes.h \
+	lib/libvterm/src/utf8.h lib/libvterm/src/vterm_internal.h
+lib/libvterm/src/mouse.o: lib/libvterm/include/vterm.h lib/libvterm/include/vterm_keycodes.h \
 	lib/libvterm/src/utf8.h lib/libvterm/src/vterm_internal.h
 lib/libvterm/src/parser.o: lib/libvterm/include/vterm.h lib/libvterm/include/vterm_keycodes.h \
 	lib/libvterm/src/vterm_internal.h

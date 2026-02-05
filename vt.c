@@ -73,6 +73,8 @@ static int vts_settermprop(VTermProp prop, VTermValue *val, void *user) {
 		tickit_window_setctl_int(tframe->termwin, TICKIT_WINCTL_CURSORBLINK, val->boolean);
 	} else if (prop == VTERM_PROP_CURSORSHAPE) {
 		tickit_window_set_cursor_shape(tframe->termwin, val->number);
+	} else if (prop == VTERM_PROP_ALTSCREEN) {
+		tframe->altscreen = val->boolean;
 	}
 
 	return 1;

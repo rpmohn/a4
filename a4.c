@@ -133,6 +133,7 @@ struct TFrame {
 	bool readonly;
 	bool urgent;
 	bool groupedfocus;
+	bool altscreen;
 	volatile sig_atomic_t died;
 	TFrame *next;
 	TFrame *prev;
@@ -611,6 +612,33 @@ static int key_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, v
 	return 1;
 }
 
+static void altscreenmouse(TFrame *tframe, TickitMouseEventInfo *m) {
+	char buffer[MAX_STR];
+	VTermModifier mod = (VTermModifier)m->mod;
+	int row = m->line - frame.rect.top - tframe->rect.top - 1;
+	int col = m->col - tframe->rect.left;
+
+	vterm_mouse_move(tframe->vt, row, col, mod);
+
+	switch (m->type) {
+	case TICKIT_MOUSEEV_PRESS:
+		vterm_mouse_button(tframe->vt, m->button, true, mod);
+		break;
+	case TICKIT_MOUSEEV_RELEASE:
+		vterm_mouse_button(tframe->vt, m->button, false, mod);
+		break;
+	case TICKIT_MOUSEEV_WHEEL:
+		vterm_mouse_button(tframe->vt, m->button == TICKIT_MOUSEWHEEL_UP ? 4 : 5, true, mod);
+		break;
+	default:
+		break;
+	}
+
+	ssize_t bytes = vterm_output_read(tframe->vt, buffer, sizeof(buffer));
+	if (bytes > 0)
+		pty_write(tframe->controller_ptyfd, buffer, bytes);
+}
+
 static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, void *data) {
 	TickitMouseEventInfo *m = _info;
 	MWin *mw;
@@ -620,6 +648,16 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 		memcpy(&mwin, mw, sizeof(MWin));
 		//DEBUG_LOGF("Umt", "mwin.type = %d, mwin.tframe = %p", mwin.type, mwin.tframe);
 	}
+
+	if (mw && mw->type == TERM && mw->tframe && mw->tframe->altscreen) {
+		if (m->type == TICKIT_MOUSEEV_PRESS)
+			dofocus(mw->tframe);
+		else
+			mwin.type = NONE;
+		altscreenmouse(mw->tframe, m);
+		return 1;
+	}
+
 	curkeymouse(m);
 	//for (unsigned int i = 0; i < curkeys_index; i++)
 		//DEBUG_LOGF("Umt", "curkeys[%d] = %s", curkeys_index, curkeys[i]);
@@ -1768,7 +1806,6 @@ static void zoomsize(char *args[]) {
 }
 
 static void vscroll_delta(TFrame *tframe, int delta) {
-	// FIXME: Deal with altscreen
 	//DEBUG_LOGF("Usb", "vscroll_delta %d", delta);
 
 	if (delta > 0) {
