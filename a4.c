@@ -172,6 +172,14 @@ typedef struct {
 } MWin;
 static MWin mwin;
 
+typedef enum { SEL_NONE = 0, SEL_STARTED, SEL_ACTIVE } SelState;
+static struct {
+	SelState state;
+	TFrame *tframe;
+	int start_row, start_col;
+	int end_row, end_col;
+} selection;
+
 static struct {
 	unsigned int curtag, prevtag;
 	Layout **currlayout;
@@ -210,6 +218,11 @@ static MWin *get_mwin_by_coord(int line, int col);
 static TFrame *get_tframe_by_coord(int line, int col);
 static KeyBinding *keybinding(KeyCombo keys, unsigned int keycount);
 static KeyBinding *mousebinding(KeyCombo keys, unsigned int keycount);
+
+static void selection_clear(void);
+static bool selection_is_selected(TFrame *tframe, int row, int col);
+static char *selection_extract_text(void);
+static void selection_to_clipboard(const char *text);
 
 static int resize_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, void *data);
 static int key_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, void *data);
@@ -639,6 +652,166 @@ static void altscreenmouse(TFrame *tframe, TickitMouseEventInfo *m) {
 		pty_write(tframe->controller_ptyfd, buffer, bytes);
 }
 
+static void selection_clear(void) {
+	if (selection.state != SEL_NONE && selection.tframe)
+		tickit_window_expose(selection.tframe->termwin, NULL);
+	selection.state = SEL_NONE;
+	selection.tframe = NULL;
+}
+
+static bool selection_is_selected(TFrame *tframe, int row, int col) {
+	if (selection.state != SEL_ACTIVE || selection.tframe != tframe)
+		return false;
+
+	int sr = selection.start_row, sc = selection.start_col;
+	int er = selection.end_row, ec = selection.end_col;
+
+	/* Normalize so sr/sc is before er/ec */
+	if (sr > er || (sr == er && sc > ec)) {
+		int tmp;
+		tmp = sr; sr = er; er = tmp;
+		tmp = sc; sc = ec; ec = tmp;
+	}
+
+	if (row < sr || row > er)
+		return false;
+	if (sr == er)
+		return col >= sc && col <= ec;
+	if (row == sr)
+		return col >= sc;
+	if (row == er)
+		return col <= ec;
+	return true;
+}
+
+static char *selection_extract_text(void) {
+	if (selection.state != SEL_ACTIVE || !selection.tframe)
+		return NULL;
+
+	TFrame *tf = selection.tframe;
+	int sr = selection.start_row, sc = selection.start_col;
+	int er = selection.end_row, ec = selection.end_col;
+
+	/* Normalize */
+	if (sr > er || (sr == er && sc > ec)) {
+		int tmp;
+		tmp = sr; sr = er; er = tmp;
+		tmp = sc; sc = ec; ec = tmp;
+	}
+
+	/* Allocate buffer: worst case ~4 bytes per cell + newlines */
+	int nrows = er - sr + 1;
+	int maxcols = tf->termrect.cols;
+	size_t bufsize = nrows * (maxcols * 4 + 1) + 1;
+	char *buf = malloc(bufsize);
+	if (!buf)
+		return NULL;
+
+	size_t pos = 0;
+	for (int row = sr; row <= er; row++) {
+		int col_start = (row == sr) ? sc : 0;
+		int col_end = (row == er) ? ec : maxcols - 1;
+		int last_nonspace = -1;
+
+		/* Convert display row to vterm row for fetch_cell */
+		int vrow = row - tf->sb_offset;
+
+		/* First pass: find last non-empty cell for trailing whitespace strip */
+		for (int col = col_start; col <= col_end; ) {
+			VTermPos vpos = { .row = vrow, .col = col };
+			VTermScreenCell cell;
+			fetch_cell(tf, vpos, &cell);
+			if (cell.chars[0] != 0 && cell.chars[0] != ' ')
+				last_nonspace = col;
+			col += (cell.width > 0) ? cell.width : 1;
+		}
+
+		/* Second pass: extract text up to last non-space */
+		for (int col = col_start; col <= col_end && col <= last_nonspace; ) {
+			VTermPos vpos = { .row = vrow, .col = col };
+			VTermScreenCell cell;
+			fetch_cell(tf, vpos, &cell);
+
+			if (cell.chars[0] == 0) {
+				if (pos < bufsize - 1)
+					buf[pos++] = ' ';
+				col++;
+			} else {
+				for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; i++) {
+					char bytes[6];
+					int nbytes = fill_utf8(cell.chars[i], bytes);
+					for (int b = 0; b < nbytes && pos < bufsize - 1; b++)
+						buf[pos++] = bytes[b];
+				}
+				col += (cell.width > 0) ? cell.width : 1;
+			}
+		}
+
+		if (row < er && pos < bufsize - 1)
+			buf[pos++] = '\n';
+	}
+
+	buf[pos] = '\0';
+	return buf;
+}
+
+static const char b64_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static char *base64_encode(const char *data, size_t len) {
+	size_t outlen = 4 * ((len + 2) / 3);
+	char *out = malloc(outlen + 1);
+	if (!out)
+		return NULL;
+
+	size_t j = 0;
+	for (size_t i = 0; i < len; ) {
+		uint32_t a = (i < len) ? (unsigned char)data[i++] : 0;
+		uint32_t b = (i < len) ? (unsigned char)data[i++] : 0;
+		uint32_t c = (i < len) ? (unsigned char)data[i++] : 0;
+		uint32_t triple = (a << 16) | (b << 8) | c;
+
+		out[j++] = b64_table[(triple >> 18) & 0x3F];
+		out[j++] = b64_table[(triple >> 12) & 0x3F];
+		out[j++] = b64_table[(triple >> 6) & 0x3F];
+		out[j++] = b64_table[triple & 0x3F];
+	}
+
+	/* Padding */
+	int mod = len % 3;
+	if (mod == 1) {
+		out[j - 1] = '=';
+		out[j - 2] = '=';
+	} else if (mod == 2) {
+		out[j - 1] = '=';
+	}
+
+	out[j] = '\0';
+	return out;
+}
+
+static void selection_to_clipboard(const char *text) {
+	if (!text || !*text)
+		return;
+
+	char *encoded = base64_encode(text, strlen(text));
+	if (!encoded)
+		return;
+
+	char *osc = malloc(strlen(encoded) + 16);
+	if (osc) {
+		/* Write to System Clipboard */
+		sprintf(osc, "\033]52;c;%s\033\\", encoded);
+		tickit_term_print(root.tt, osc);
+
+		/* Write to Primary Selection */
+		sprintf(osc, "\033]52;p;%s\033\\", encoded);
+		tickit_term_print(root.tt, osc);
+
+		free(osc);
+	}
+	free(encoded);
+}
+
 static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, void *data) {
 	TickitMouseEventInfo *m = _info;
 	MWin *mw;
@@ -656,6 +829,54 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 			mwin.type = NONE;
 		altscreenmouse(mw->tframe, m);
 		return 1;
+	}
+
+	/* Pane-aware mouse selection: unmodified button-1 press/drag/release in TERM area */
+	if (mw && mw->type == TERM && mw->tframe && m->button == 1 && m->mod == 0) {
+		TFrame *tf = mw->tframe;
+		int term_row = m->line - frame.rect.top - tf->rect.top - 1;
+		int term_col = m->col - tf->rect.left;
+
+		/* Clamp to terminal content area */
+		if (term_row < 0) term_row = 0;
+		if (term_row >= tf->termrect.lines) term_row = tf->termrect.lines - 1;
+		if (term_col < 0) term_col = 0;
+		if (term_col >= tf->termrect.cols) term_col = tf->termrect.cols - 1;
+
+		if (m->type == TICKIT_MOUSEEV_PRESS) {
+			selection_clear();
+			selection.tframe = tf;
+			selection.start_row = term_row;
+			selection.start_col = term_col;
+			selection.end_row = term_row;
+			selection.end_col = term_col;
+			selection.state = SEL_STARTED;
+			dofocus(tf);
+			return 1;
+		} else if (m->type == TICKIT_MOUSEEV_DRAG &&
+				   (selection.state == SEL_STARTED || selection.state == SEL_ACTIVE) &&
+				   selection.tframe == tf) {
+			selection.state = SEL_ACTIVE;
+			selection.end_row = term_row;
+			selection.end_col = term_col;
+			tickit_window_expose(tf->termwin, NULL);
+			return 1;
+		} else if (m->type == TICKIT_MOUSEEV_RELEASE && selection.state == SEL_ACTIVE) {
+			char *text = selection_extract_text();
+			if (text) {
+				selection_to_clipboard(text);
+				free(text);
+			}
+			selection_clear();
+			return 1;
+		} else if (m->type == TICKIT_MOUSEEV_RELEASE && selection.state == SEL_STARTED) {
+			/* Click with no drag: clear and fall through to binding system */
+			selection.state = SEL_NONE;
+			selection.tframe = NULL;
+		}
+	} else if (selection.state != SEL_NONE) {
+		/* Any other event clears selection */
+		selection_clear();
 	}
 
 	curkeymouse(m);
@@ -1032,6 +1253,7 @@ static void set_frame_rect(void) {
 static void arrange(void) {
 	unsigned int m = 0, n = 0;
 	DEBUG_LOGF("Uar", "arrange()");
+	selection_clear();
 	for (TFrame *tframe = nextvisible(tframes); tframe; tframe = nextvisible(tframe->next)) {
 		tframe->order = ++n;
 		if (tframe->minimized)
@@ -1620,16 +1842,22 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 	DEBUG_LOGF("Urt", "render_termwin rect = %d/%d/%d/%d, tframe = %p", rect.top, rect.left, rect.lines, rect.cols, tframe);
 	tickit_renderbuffer_eraserect(rb, &rect);
 
+	bool last_sel = false;
 	for (ppos.row = rect.top; ppos.row < (rect.top + rect.lines); ppos.row++) {
+		last_sel = false;
 		for (ppos.col = rect.left; ppos.col < (rect.left + rect.cols); ) {
 			vpos.row = ppos.row - tframe->sb_offset;
 			vpos.col = ppos.col;
 			fetch_cell(tframe, vpos, &cell);
-			if ((vpos.col == rect.left) || !compare_cells(&cell, &lastcell)) {
+			bool is_sel = selection_is_selected(tframe, ppos.row, ppos.col);
+			if ((vpos.col == rect.left) || !compare_cells(&cell, &lastcell) || is_sel != last_sel) {
 				/* set pen */
 				TickitPen_from_VTermScreenCell(pen, &cell, tframe->cs);
+				if (is_sel)
+					tickit_pen_set_bool_attr(pen, TICKIT_PEN_REVERSE, !cell.attrs.reverse);
 				tickit_renderbuffer_setpen(rb, pen);
 				lastcell = cell;
+				last_sel = is_sel;
 			}
 
 			if (cell.chars[0] == 0) {
