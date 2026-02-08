@@ -887,6 +887,7 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 				free(text);
 			}
 			selection_clear();
+			mwin.type = NONE;
 			return 1;
 		} else if (m->type == TICKIT_MOUSEEV_RELEASE && selection.state == SEL_STARTED) {
 			/* Click with no drag: clear and fall through to binding system */
