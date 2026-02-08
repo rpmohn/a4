@@ -823,16 +823,23 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 	}
 
 	if (mw && mw->type == TERM && mw->tframe && mw->tframe->altscreen) {
-		if (m->type == TICKIT_MOUSEEV_PRESS)
-			dofocus(mw->tframe);
-		else
-			mwin.type = NONE;
-		altscreenmouse(mw->tframe, m);
-		return 1;
+		/* Ctrl+button-1 overrides altscreen to allow pane-aware selection */
+		bool ctrl_sel = (m->button == 1 && m->mod == TICKIT_MOD_CTRL);
+		bool sel_continuing = (m->button == 1 && selection.state != SEL_NONE && selection.tframe == mw->tframe);
+		if (!ctrl_sel && !sel_continuing) {
+			if (m->type == TICKIT_MOUSEEV_PRESS)
+				dofocus(mw->tframe);
+			else
+				mwin.type = NONE;
+			altscreenmouse(mw->tframe, m);
+			return 1;
+		}
 	}
 
-	/* Pane-aware mouse selection: unmodified button-1 press/drag/release in TERM area */
-	if (mw && mw->type == TERM && mw->tframe && m->button == 1 && m->mod == 0) {
+	/* Pane-aware mouse selection: button-1 press/drag/release in TERM area
+	 * Accepts unmodified or Ctrl-modified (Ctrl for altscreen override) */
+	if (mw && mw->type == TERM && mw->tframe && m->button == 1 &&
+			(m->mod == 0 || m->mod == TICKIT_MOD_CTRL || selection.state != SEL_NONE)) {
 		TFrame *tf = mw->tframe;
 		int term_row = m->line - frame.rect.top - tf->rect.top - 1;
 		int term_col = m->col - tf->rect.left;
