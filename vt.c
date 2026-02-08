@@ -378,6 +378,23 @@ static void get_vterm(TFrame *tframe) {
 	tframe->watchio = tickit_watch_io(root.tickit, tframe->controller_ptyfd, TICKIT_IO_IN|TICKIT_IO_HUP, 0, &pty_read, tframe);
 }
 
+static void get_vterm_cmd(TFrame *tframe, const char *cmd, const char *argv[], const char *env[]) {
+	tframe->vt = vterm_new(tframe->termrect.lines, tframe->termrect.cols);
+	vterm_set_utf8(tframe->vt, true);
+	tframe->vts = vterm_obtain_screen(tframe->vt);
+	vterm_screen_reset(tframe->vts, 1);
+	vterm_screen_set_damage_merge(tframe->vts, VTERM_DAMAGE_SCROLL);
+	vterm_screen_enable_altscreen(tframe->vts, true);
+	vterm_screen_enable_reflow(tframe->vts, true);
+	vterm_screen_set_callbacks(tframe->vts, &vtermscreencallbacks, tframe);
+
+	tframe->sb_current = tframe->sb_offset = 0;
+	tframe->sb_buffer = calloc(config.scroll_history, sizeof(ScrollbackLine *));
+
+	tframe->worker_pid = vt_forkpty(tframe, cmd, argv, env);
+	tframe->watchio = tickit_watch_io(root.tickit, tframe->controller_ptyfd, TICKIT_IO_IN|TICKIT_IO_HUP, 0, &pty_read, tframe);
+}
+
 static void free_vterm(TFrame *tframe) {
 	if (tframe->sb_buffer) {
 		for (int i = 0; i < tframe->sb_current; i++)

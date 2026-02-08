@@ -8,6 +8,7 @@
  *             termwin contains the actual terminal (cyan)
  */
 #include <errno.h>
+#include <limits.h>
 #include <locale.h>
 #include <pwd.h>
 #include <signal.h>
@@ -180,6 +181,15 @@ static struct {
 	int end_row, end_col;
 } selection;
 
+static char *paste_buffer = NULL;
+
+static struct {
+	TFrame *overlay;
+	TFrame *original;
+	char infile[PATH_MAX];
+	char outfile[PATH_MAX];
+} copymode_state;
+
 static struct {
 	unsigned int curtag, prevtag;
 	Layout **currlayout;
@@ -292,12 +302,14 @@ static void usage(const char *errstr, ...);
 static void parse_args(int argc, char *argv[]);
 
 #define ACTIONS(X)        \
+	X(copymode)           \
 	X(create)             \
 	X(destroy)            \
 	X(focus)              \
 	X(keysequence)        \
 	X(layout)             \
 	X(minimize)           \
+	X(paste)              \
 	X(noaction)           \
 	X(quit)               \
 	X(readonly)           \
@@ -1225,6 +1237,8 @@ static void erase(void) {
 }
 
 static bool isvisible(TFrame *tframe) {
+	if (tframe == copymode_state.original && copymode_state.overlay)
+		return false;
 	return (tframe->tags & tagset[seltags]);
 }
 
@@ -2086,6 +2100,198 @@ static void scrollback(char *args[]) {
 
 }
 
+static void dump_scrollback_to_file(TFrame *tframe, const char *path) {
+	FILE *f = fopen(path, "w");
+	if (!f)
+		return;
+
+	int maxcols = tframe->termrect.cols;
+	char bytes[6];
+
+	/* Dump scrollback lines (negative rows) then screen lines (positive rows) */
+	int start_row = -(tframe->sb_current);
+	int end_row = tframe->termrect.lines - 1;
+
+	for (int row = start_row; row <= end_row; row++) {
+		int last_nonspace = -1;
+
+		/* First pass: find last non-empty cell */
+		for (int col = 0; col < maxcols; ) {
+			VTermPos vpos = { .row = row, .col = col };
+			VTermScreenCell cell;
+			fetch_cell(tframe, vpos, &cell);
+			if (cell.chars[0] != 0 && cell.chars[0] != ' ')
+				last_nonspace = col;
+			col += (cell.width > 0) ? cell.width : 1;
+		}
+
+		/* Second pass: extract text up to last non-space */
+		for (int col = 0; col <= last_nonspace; ) {
+			VTermPos vpos = { .row = row, .col = col };
+			VTermScreenCell cell;
+			fetch_cell(tframe, vpos, &cell);
+
+			if (cell.chars[0] == 0) {
+				fputc(' ', f);
+				col++;
+			} else {
+				for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; i++) {
+					int nbytes = fill_utf8(cell.chars[i], bytes);
+					fwrite(bytes, 1, nbytes, f);
+				}
+				col += (cell.width > 0) ? cell.width : 1;
+			}
+		}
+
+		fputc('\n', f);
+	}
+
+	fclose(f);
+}
+
+static void copymode(char *args[]) {
+	if (!sel || !is_content_visible(sel))
+		return;
+
+	/* Don't allow nested copymode */
+	if (copymode_state.overlay)
+		return;
+
+	/* Create temp input file and dump scrollback */
+	snprintf(copymode_state.infile, PATH_MAX, "/tmp/a4-copymode-in-XXXXXX");
+	int infd = mkstemp(copymode_state.infile);
+	if (infd < 0)
+		return;
+	close(infd);
+
+	dump_scrollback_to_file(sel, copymode_state.infile);
+
+	/* Create temp output file */
+	snprintf(copymode_state.outfile, PATH_MAX, "/tmp/a4-copymode-out-XXXXXX");
+	int outfd = mkstemp(copymode_state.outfile);
+	if (outfd < 0) {
+		unlink(copymode_state.infile);
+		return;
+	}
+	close(outfd);
+
+	/* Resolve editor command */
+	const char *editor = config.copymode_editor;
+	if (!editor || !*editor)
+		editor = getenv("EDITOR");
+	if (!editor || !*editor)
+		editor = "vi";
+
+	/* Build shell command: sh -c 'exec $editor "$1" "$2"' -- infile outfile */
+	char cmdstr[PATH_MAX * 2 + 256];
+	snprintf(cmdstr, sizeof(cmdstr), "exec %s \"$1\" \"$2\"", editor);
+
+	const char *cmd = "/bin/sh";
+	const char *argv[] = { "sh", "-c", cmdstr, "--", copymode_state.infile, copymode_state.outfile, NULL };
+
+	/* Remember which pane we're overlaying */
+	copymode_state.original = sel;
+
+	/* Create overlay tframe at sel's position */
+	TFrame *tframe = calloc(1, sizeof(TFrame));
+	tframe->tags = tagset[seltags];
+
+	tframe->rect = sel->rect;
+
+	tframe->win = tickit_window_new(frame.win, tframe->rect, 0);
+	tframe->bind_geomchange = tickit_window_bind_event(tframe->win, TICKIT_WINDOW_ON_GEOMCHANGE, 0, &resize_tframewin, tframe);
+
+	create_tbarwin(tframe);
+
+	/* Create termwin */
+	TickitRect rect = { 1, 0, tframe->rect.lines - 1, tframe->rect.cols };
+	tframe->termwin = tickit_window_new(tframe->win, rect, 0);
+	tframe->termwin_bind_expose = tickit_window_bind_event(tframe->termwin, TICKIT_WINDOW_ON_EXPOSE, 0, &render_termwin, tframe);
+	tframe->termwin_bind_geomchange = tickit_window_bind_event(tframe->termwin, TICKIT_WINDOW_ON_GEOMCHANGE, 0, &resize_termwin, tframe);
+
+	tickit_window_set_cursor_visible(tframe->termwin, config.cursorvis);
+	tickit_window_set_cursor_shape(tframe->termwin, config.cursorshape);
+	tickit_window_setctl_int(tframe->termwin, TICKIT_WINCTL_CURSORBLINK, config.cursorblink);
+
+	tframe->termrect = rect;
+	tframe->termrect.top = 0;
+
+	/* Use get_vterm_cmd instead of get_vterm to run the editor */
+	get_vterm_cmd(tframe, cmd, argv, NULL);
+
+	applycolorrules(tframe);
+
+	/* Insert overlay right after original so it inherits the same list position */
+	attachafter(tframe, sel);
+	attachstack(tframe);
+	dofocus(tframe);
+	copymode_state.overlay = tframe;
+
+	/* Raise overlay window above sel */
+	tickit_window_raise(tframe->win);
+	tickit_window_expose(tframe->win, NULL);
+}
+
+static void paste(char *args[]) {
+	if (!paste_buffer || !*paste_buffer || !sel)
+		return;
+
+	size_t len = strlen(paste_buffer);
+
+	/* Use bracketed paste mode: wrap content in ESC[200~ ... ESC[201~ */
+	pty_write(sel->controller_ptyfd, "\033[200~", 6);
+	pty_write(sel->controller_ptyfd, paste_buffer, len);
+	pty_write(sel->controller_ptyfd, "\033[201~", 6);
+}
+
+static void destroy_copymode_tframe(TFrame *tframe) {
+	/* Read output file into paste buffer */
+	FILE *f = fopen(copymode_state.outfile, "r");
+	if (f) {
+		fseek(f, 0, SEEK_END);
+		long fsize = ftell(f);
+		fseek(f, 0, SEEK_SET);
+		if (fsize > 0) {
+			free(paste_buffer);
+			paste_buffer = malloc(fsize + 1);
+			if (paste_buffer) {
+				size_t nread = fread(paste_buffer, 1, fsize, f);
+				paste_buffer[nread] = '\0';
+				/* Strip trailing newline if present */
+				while (nread > 0 && paste_buffer[nread - 1] == '\n')
+					paste_buffer[--nread] = '\0';
+				selection_to_clipboard(paste_buffer);
+			}
+		}
+		fclose(f);
+	}
+	unlink(copymode_state.infile);
+	unlink(copymode_state.outfile);
+
+	TFrame *orig = copymode_state.original;
+	copymode_state.overlay = NULL;
+	copymode_state.original = NULL;
+
+	/* Move original to overlay's position in the list so it stays
+	 * where the overlay ended up after any zoom/swap operations.
+	 * Read overlay_prev after detach so it reflects the actual
+	 * predecessor (not orig itself when they are adjacent). */
+	if (orig) {
+		detach(orig);
+		TFrame *overlay_prev = tframe->prev;
+		if (overlay_prev)
+			attachafter(orig, overlay_prev);
+		else
+			attach(orig);
+	}
+
+	destroy_tframe(tframe);
+
+	/* Restore focus to original pane */
+	if (orig && isvisible(orig))
+		dofocus(orig);
+}
+
 static void set_pertag(void) {
 	currlayout = pertag.currlayout[pertag.curtag];
 	currzoomnum = pertag.currzoomnum[pertag.curtag];
@@ -2144,6 +2350,15 @@ static void startup_a4(void) {
 static void shutdown_a4(void) {
 	while (tframes)
 		destroy_tframe(tframes);
+
+	free(paste_buffer);
+	paste_buffer = NULL;
+
+	/* Clean up copymode temp files if still present */
+	if (copymode_state.infile[0])
+		unlink(copymode_state.infile);
+	if (copymode_state.outfile[0])
+		unlink(copymode_state.outfile);
 
 	destroy_pertag();
 
@@ -2274,7 +2489,10 @@ int main(int argc, char *argv[]) {
 		for (TFrame *tframe = tframes; tframe;) {
 			if (tframe->died) {
 				TFrame *t = tframe->next;
-				destroy_tframe(tframe);
+				if (tframe == copymode_state.overlay)
+					destroy_copymode_tframe(tframe);
+				else
+					destroy_tframe(tframe);
 				tframe = t;
 				break; // Destroy tframes one at a time so that tickit_tick can perform clean up
 			}

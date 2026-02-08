@@ -45,6 +45,7 @@ typedef struct {
 	float zoomsize;
 	unsigned int zoomnum;
 	int scroll_history;
+	char *copymode_editor;
 
 	unsigned int nstartups;
 	KeyBinding *startups;
@@ -908,6 +909,8 @@ static int a4_ini_handler(void *user, const char *section, const char *name, con
 		cfg->zoomsize = atof(value);
 	} else if (strcasecmp(name, "scroll_history") == 0) {
 		cfg->scroll_history = atoi(value);
+	} else if (strcasecmp(name, "copymode_editor") == 0) {
+		prepare_str(&cfg->copymode_editor, value);
 
 	} else if (strcasecmp(name, "startup") == 0) {
 		create_startup(&cfg->nstartups, &cfg->startups, name, value);
@@ -1036,6 +1039,8 @@ static void destroy_config(Config *cfg) {
 	tickit_pen_unref(cfg->tag_occupied_pen);
 	tickit_pen_unref(cfg->tag_unoccupied_pen);
 	tickit_pen_unref(cfg->tag_urgent_pen);
+
+	free(cfg->copymode_editor);
 
 	destroy_bindings(&cfg->nstartups, &cfg->startups);
 	destroy_bindings(&cfg->nkb_bindings, &cfg->kb_bindings);
