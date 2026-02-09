@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <netdb.h>
 #include <unistd.h>
 
 #if defined(__linux__) || defined(__CYGWIN__)
@@ -204,6 +205,35 @@ bool session_get_socket_dir(char *path, size_t size) {
 	return true;
 }
 
+static bool get_fqdn(char *buf, size_t size) {
+	char hostname[256];
+	if (gethostname(hostname, sizeof(hostname)) == -1)
+		return false;
+	hostname[sizeof(hostname) - 1] = '\0';
+
+	/* If hostname already contains a dot, it's likely an FQDN */
+	if (strchr(hostname, '.')) {
+		snprintf(buf, size, "%s", hostname);
+		return true;
+	}
+
+	/* Try to resolve the FQDN via getaddrinfo */
+	struct addrinfo hints = { .ai_flags = AI_CANONNAME };
+	struct addrinfo *res = NULL;
+	if (getaddrinfo(hostname, NULL, &hints, &res) == 0 && res && res->ai_canonname
+	    && strchr(res->ai_canonname, '.')) {
+		snprintf(buf, size, "%s", res->ai_canonname);
+		freeaddrinfo(res);
+		return true;
+	}
+	if (res)
+		freeaddrinfo(res);
+
+	/* Fall back to short hostname */
+	snprintf(buf, size, "%s", hostname);
+	return true;
+}
+
 bool session_get_socket_path(char *path, size_t size, const char *name) {
 	char dir[PATH_MAX];
 	if (!session_get_socket_dir(dir, sizeof(dir)))
@@ -217,7 +247,10 @@ bool session_get_socket_path(char *path, size_t size, const char *name) {
 		}
 		strncpy(path, name, size);
 	} else {
-		if (snprintf(path, size, "%s/%s", dir, name) >= (int)size) {
+		char fqdn[256];
+		if (!get_fqdn(fqdn, sizeof(fqdn)))
+			return false;
+		if (snprintf(path, size, "%s/%s.%s", dir, name, fqdn) >= (int)size) {
 			errno = ENAMETOOLONG;
 			return false;
 		}
@@ -794,6 +827,16 @@ int session_list(void) {
 		return 1;
 	}
 
+	char fqdn[256];
+	if (!get_fqdn(fqdn, sizeof(fqdn))) {
+		fprintf(stderr, "a4: cannot determine hostname\n");
+		return 1;
+	}
+
+	char suffix[258];
+	snprintf(suffix, sizeof(suffix), ".%s", fqdn);
+	size_t suffix_len = strlen(suffix);
+
 	DIR *dp = opendir(dir);
 	if (!dp) {
 		if (errno == ENOENT) {
@@ -812,18 +855,27 @@ int session_list(void) {
 		if (entry->d_name[0] == '.')
 			continue;
 
-		char path[PATH_MAX];
-		if (snprintf(path, sizeof(path), "%s/%s", dir, entry->d_name) >= (int)sizeof(path)) {
-			fprintf(stderr, "warning: session path too long: %s/%s\n", dir, entry->d_name);
+		/* Only show sessions for this host */
+		size_t namelen = strlen(entry->d_name);
+		if (namelen <= suffix_len ||
+		    strcmp(entry->d_name + namelen - suffix_len, suffix) != 0)
 			continue;
-		}
+
+		char path[PATH_MAX];
+		if (snprintf(path, sizeof(path), "%s/%s", dir, entry->d_name) >= (int)sizeof(path))
+			continue;
 
 		struct stat sb;
 		if (stat(path, &sb) != 0 || !S_ISSOCK(sb.st_mode))
 			continue;
 
+		/* Extract bare session name */
+		char bare_name[PATH_MAX];
+		snprintf(bare_name, sizeof(bare_name), "%.*s",
+		         (int)(namelen - suffix_len), entry->d_name);
+
 		/* Check if session is alive */
-		pid_t pid = session_get_pid(entry->d_name);
+		pid_t pid = session_get_pid(bare_name);
 		if (!pid)
 			continue;
 
@@ -832,7 +884,7 @@ int session_list(void) {
 		struct tm *tm = localtime(&sb.st_mtime);
 		strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", tm);
 
-		printf("  %s\t%d\t%s\n", timebuf, (int)pid, entry->d_name);
+		printf("  %s\t%d\t%s\n", timebuf, (int)pid, bare_name);
 		count++;
 	}
 
