@@ -1859,7 +1859,9 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 	VTermPos ppos, vpos;
 	VTermScreenCell cell, lastcell;
 
-	TickitPen *pen = tickit_pen_new();
+	static TickitPen *pen = NULL;
+	if (!pen)
+		pen = tickit_pen_new();
 
 	DEBUG_LOGF("Urt", "render_termwin rect = %d/%d/%d/%d, tframe = %p", rect.top, rect.left, rect.lines, rect.cols, tframe);
 	tickit_renderbuffer_eraserect(rb, &rect);
@@ -1897,18 +1899,17 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 					break;
 				}
 			} else {
-				for(int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; i++) {
-					char bytes[6];
-					bytes[fill_utf8(cell.chars[i], bytes)] = 0;
-					tickit_renderbuffer_textf_at(rb, ppos.row, ppos.col, "%s", bytes);
-				}
+				char bytes[6 * VTERM_MAX_CHARS_PER_CELL + 1];
+				int len = 0;
+				for(int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; i++)
+					len += fill_utf8(cell.chars[i], bytes + len);
+				bytes[len] = 0;
+				tickit_renderbuffer_text_at(rb, ppos.row, ppos.col, bytes);
 			}
 
 			ppos.col += cell.width;
 		}
 	}
-
-	tickit_pen_unref(pen);
 
 	return 1;
 }
