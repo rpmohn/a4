@@ -18,9 +18,7 @@ static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user);
 static int vts_sb_popline(int cols, VTermScreenCell *cells, void *user);
 
 static void tickit_pen_set_palette_colour(TickitPen *pen, TickitPenAttr attr, VTermColor *col, ColorScheme *cs);
-static void TickitPen_from_VTermScreenCell(TickitPen *pen, VTermScreenCell *cell, ColorScheme *cs);
 static void applycolorrules(TFrame *tframe);
-static bool compare_cells(VTermScreenCell *a, VTermScreenCell *b);
 static void fetch_cell(TFrame *tframe, VTermPos pos, VTermScreenCell *cell);
 static VTermKey strp_key(const char *str);
 static ssize_t pty_write(int fd, const char *buf, size_t len);
@@ -185,19 +183,6 @@ static void tickit_pen_set_palette_colour(TickitPen *pen, TickitPenAttr attr, VT
 	//printTickitPen(pen);
 }
 
-static void TickitPen_from_VTermScreenCell(TickitPen *pen, VTermScreenCell *cell, ColorScheme *cs) {
-	tickit_pen_set_palette_colour(pen, TICKIT_PEN_FG, &cell->fg, cs);
-	tickit_pen_set_palette_colour(pen, TICKIT_PEN_BG, &cell->bg, cs);
-
-	tickit_pen_set_bool_attr(pen, TICKIT_PEN_BOLD, cell->attrs.bold);
-	tickit_pen_set_int_attr(pen, TICKIT_PEN_UNDER, cell->attrs.underline);
-	tickit_pen_set_bool_attr(pen, TICKIT_PEN_ITALIC, cell->attrs.italic);
-	tickit_pen_set_bool_attr(pen, TICKIT_PEN_REVERSE, cell->attrs.reverse);
-	tickit_pen_set_bool_attr(pen, TICKIT_PEN_STRIKE, cell->attrs.strike);
-	tickit_pen_set_int_attr(pen, TICKIT_PEN_ALTFONT, cell->attrs.font);
-	tickit_pen_set_bool_attr(pen, TICKIT_PEN_BLINK, cell->attrs.blink);
-}
-
 static void applycolorrules(TFrame *tframe) {
 	const ColorRule *r;
 	const ColorScheme *prev = tframe->cs;
@@ -222,18 +207,6 @@ static void applycolorrules(TFrame *tframe) {
 	vterm_screen_set_default_colors(tframe->vts, &tframe->cs->fg, &tframe->cs->bg);
 	tickit_window_set_pen(tframe->termwin, tframe->cs->pen);
 	tickit_window_expose(tframe->win, NULL);
-}
-
-static bool compare_cells(VTermScreenCell *a, VTermScreenCell *b) {
-	bool equal = true;
-	equal = equal && vterm_color_is_equal(&a->fg, &b->fg);
-	equal = equal && vterm_color_is_equal(&a->bg, &b->bg);
-	equal = equal && (a->attrs.bold == b->attrs.bold);
-	equal = equal && (a->attrs.underline == b->attrs.underline);
-	equal = equal && (a->attrs.italic == b->attrs.italic);
-	equal = equal && (a->attrs.reverse == b->attrs.reverse);
-	equal = equal && (a->attrs.strike == b->attrs.strike);
-	return equal;
 }
 
 static void fetch_cell(TFrame *tframe, VTermPos pos, VTermScreenCell *cell) {

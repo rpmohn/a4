@@ -1874,11 +1874,34 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 			vpos.col = ppos.col;
 			fetch_cell(tframe, vpos, &cell);
 			bool is_sel = selection_is_selected(tframe, ppos.row, ppos.col);
-			if ((vpos.col == rect.left) || !compare_cells(&cell, &lastcell) || is_sel != last_sel) {
-				/* set pen */
-				TickitPen_from_VTermScreenCell(pen, &cell, tframe->cs);
-				if (is_sel)
-					tickit_pen_set_bool_attr(pen, TICKIT_PEN_REVERSE, !cell.attrs.reverse);
+			bool force = (vpos.col == rect.left);
+			bool colors_changed = force
+				|| !vterm_color_is_equal(&cell.fg, &lastcell.fg)
+				|| !vterm_color_is_equal(&cell.bg, &lastcell.bg);
+			bool attrs_changed = force
+				|| (cell.attrs.bold      != lastcell.attrs.bold)
+				|| (cell.attrs.underline != lastcell.attrs.underline)
+				|| (cell.attrs.italic    != lastcell.attrs.italic)
+				|| (cell.attrs.blink     != lastcell.attrs.blink)
+				|| (cell.attrs.reverse   != lastcell.attrs.reverse)
+				|| (cell.attrs.strike    != lastcell.attrs.strike)
+				|| (cell.attrs.font      != lastcell.attrs.font);
+			if (colors_changed || attrs_changed || is_sel != last_sel) {
+				if (colors_changed) {
+					tickit_pen_set_palette_colour(pen, TICKIT_PEN_FG, &cell.fg, tframe->cs);
+					tickit_pen_set_palette_colour(pen, TICKIT_PEN_BG, &cell.bg, tframe->cs);
+				}
+				if (attrs_changed) {
+					tickit_pen_set_bool_attr(pen, TICKIT_PEN_BOLD,    cell.attrs.bold);
+					tickit_pen_set_int_attr(pen,  TICKIT_PEN_UNDER,   cell.attrs.underline);
+					tickit_pen_set_bool_attr(pen, TICKIT_PEN_ITALIC,  cell.attrs.italic);
+					tickit_pen_set_bool_attr(pen, TICKIT_PEN_STRIKE,  cell.attrs.strike);
+					tickit_pen_set_int_attr(pen,  TICKIT_PEN_ALTFONT, cell.attrs.font);
+					tickit_pen_set_bool_attr(pen, TICKIT_PEN_BLINK,   cell.attrs.blink);
+				}
+				if (attrs_changed || is_sel != last_sel)
+					tickit_pen_set_bool_attr(pen, TICKIT_PEN_REVERSE,
+						is_sel ? !cell.attrs.reverse : cell.attrs.reverse);
 				tickit_renderbuffer_setpen(rb, pen);
 				lastcell = cell;
 				last_sel = is_sel;
