@@ -25,6 +25,7 @@ static ssize_t pty_write(int fd, const char *buf, size_t len);
 static int pty_read(Tickit *t, TickitEventFlags flags, void *_info, void *data);
 static pid_t vt_forkpty(TFrame *tframe, const char *p, const char *argv[], const char *env[]);
 static void free_vterm(TFrame *tframe);
+static void get_vterm_cmd(TFrame *tframe, const char *cmd, const char *argv[], const char *env[]);
 static void get_vterm(TFrame *tframe);
 
 /* functions */
@@ -86,63 +87,55 @@ static int vts_bell(void *user) {
 }
 static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user) {
 	TFrame *tframe = user;
-	//DEBUG_LOGF("Uvp", "vts_sb_pushline start, cols = %d, sb_current = %d, sb_offset = %d", cols, tframe->sb_current, tframe->sb_offset);
 
 	if (config.scroll_history == 0)
 		return 0;
 
-	/* copy vterm cells into sb_buffer */
+	int capacity = config.scroll_history;
+	int new_head = (tframe->sb_head - 1 + capacity) % capacity;
 	ScrollbackLine *sb_row = NULL;
-	if (tframe->sb_current == config.scroll_history) {
-		if (tframe->sb_buffer[tframe->sb_current - 1]->cols == cols)
-			/* Recycle old row if it is the correct size */
-			sb_row = tframe->sb_buffer[tframe->sb_current - 1];
-		else
-			free(tframe->sb_buffer[tframe->sb_current - 1]);
 
-		/* Make room at the start by shifting to the right */
-		memmove(tframe->sb_buffer + 1, tframe->sb_buffer, sizeof(tframe->sb_buffer[0]) * (tframe->sb_current - 1));
-	} else if (tframe->sb_current > 0)
-		/* Make room at the start by shifting to the right */
-		memmove(tframe->sb_buffer + 1, tframe->sb_buffer, sizeof(tframe->sb_buffer[0]) * tframe->sb_current);
+	if (tframe->sb_current == capacity) {
+		/* Buffer full: evict the oldest line, which occupies the new_head slot */
+		ScrollbackLine *old = tframe->sb_buffer[new_head];
+		if (old->cols == cols)
+			sb_row = old; /* recycle allocation */
+		else
+			free(old);
+	} else {
+		tframe->sb_current++;
+	}
 
 	if (!sb_row) {
-		sb_row = malloc(sizeof(ScrollbackLine) + (cols * sizeof(sb_row->cells[0])));
+		sb_row = malloc(sizeof(ScrollbackLine) + cols * sizeof(sb_row->cells[0]));
+		if (!sb_row)
+			return 0;
 		sb_row->cols = cols;
 	}
 
-	/* New row is added at the start of the storage buffer */
-	tframe->sb_buffer[0] = sb_row;
-	if (tframe->sb_current < config.scroll_history)
-		tframe->sb_current++;
-
+	tframe->sb_head = new_head;
+	tframe->sb_buffer[tframe->sb_head] = sb_row;
 	memcpy(sb_row->cells, cells, cols * sizeof(cells[0]));
 
-	DEBUG_LOGF("Uvp", "vts_sb_pushline end, cols = %d, sb_current = %d, sb_offset = %d", cols, tframe->sb_current, tframe->sb_offset);
 	return 1;
 }
 
 static int vts_sb_popline(int cols, VTermScreenCell *cells, void *user) {
 	TFrame *tframe = user;
-	//DEBUG_LOGF("Uvp", "vts_sb_popline start, cols = %d, sb_current = %d, sb_offset = %d", cols, tframe->sb_current, tframe->sb_offset);
 
 	if (!tframe->sb_current)
 		return 0;
 
-	ScrollbackLine *sb_row = tframe->sb_buffer[0];
+	/* Pop the most recent line and advance head toward older entries */
+	ScrollbackLine *sb_row = tframe->sb_buffer[tframe->sb_head];
 	tframe->sb_current--;
-	/* Forget the "popped" row by shifting the rest onto it */
-	memmove(tframe->sb_buffer, tframe->sb_buffer + 1, sizeof(tframe->sb_buffer[0]) * (tframe->sb_current));
+	tframe->sb_head = (tframe->sb_head + 1) % config.scroll_history;
 
 	int cols_to_copy = MIN(cols, sb_row->cols);
-
-	/* copy to vterm state */
 	memcpy(cells, sb_row->cells, sizeof(cells[0]) * cols_to_copy);
-	//DEBUG_LOGF("Uvp", "vts_sb_popline cols = %d, sb_row->cols = %d, cols_to_copy = %d", cols, sb_row->cols, cols_to_copy);
 
 	/* fill in end of line */
 	for (int col = cols_to_copy; col < cols; col++) {
-		//DEBUG_LOGF("Uvp", "vts_sb_popline col = %d, cols_to_copy = %d, cols = %d", col, cols_to_copy, cols);
 		cells[col] = (VTermScreenCell){
 			.chars = {0},
 			.width = 1,
@@ -152,7 +145,6 @@ static int vts_sb_popline(int cols, VTermScreenCell *cells, void *user) {
 		};
 	}
 
-	//DEBUG_LOGF("Uvp", "vts_sb_popline end, cols = %d, sb_current = %d, sb_offset = %d", cols, tframe->sb_current, tframe->sb_offset);
 	free(sb_row);
 	return 1;
 }
@@ -179,7 +171,7 @@ static void tickit_pen_set_palette_colour(TickitPen *pen, TickitPenAttr attr, VT
 	}
 
 	tickit_pen_set_colour_attr(pen, attr, rgb_to_idx(col->rgb.red, col->rgb.green, col->rgb.blue));
-	tickit_pen_set_colour_attr_rgb8(pen, attr, (TickitPenRGB8){ .r = col->rgb.red, .g = col->rgb.green, col->rgb.blue });
+	tickit_pen_set_colour_attr_rgb8(pen, attr, (TickitPenRGB8){ .r = col->rgb.red, .g = col->rgb.green, .b = col->rgb.blue });
 	//printTickitPen(pen);
 }
 
@@ -211,7 +203,8 @@ static void applycolorrules(TFrame *tframe) {
 
 static void fetch_cell(TFrame *tframe, VTermPos pos, VTermScreenCell *cell) {
 	if (pos.row < 0) {
-		ScrollbackLine *sb_row = tframe->sb_buffer[-pos.row - 1];
+		int idx = (tframe->sb_head + (-pos.row - 1)) % config.scroll_history;
+		ScrollbackLine *sb_row = tframe->sb_buffer[idx];
 		if (pos.col < sb_row->cols) {
 			*cell = sb_row->cells[pos.col];
 		} else {
@@ -332,25 +325,6 @@ static pid_t vt_forkpty(TFrame *tframe, const char *p, const char *argv[], const
 	return pid;
 }
 
-static void get_vterm(TFrame *tframe) {
-	const char *pargs[4] = { shell, NULL };
-
-	tframe->vt = vterm_new(tframe->termrect.lines, tframe->termrect.cols);
-	vterm_set_utf8(tframe->vt, true);
-	tframe->vts = vterm_obtain_screen(tframe->vt);
-	vterm_screen_reset(tframe->vts, 1);
-	vterm_screen_set_damage_merge(tframe->vts, VTERM_DAMAGE_SCROLL);
-	vterm_screen_enable_altscreen(tframe->vts, true);
-	vterm_screen_enable_reflow(tframe->vts, true);
-	vterm_screen_set_callbacks(tframe->vts, &vtermscreencallbacks, tframe);
-
-	tframe->sb_current = tframe->sb_offset = 0;
-	tframe->sb_buffer = calloc(config.scroll_history, sizeof(ScrollbackLine *));
-
-	tframe->worker_pid = vt_forkpty(tframe, shell, pargs, NULL);
-	tframe->watchio = tickit_watch_io(root.tickit, tframe->controller_ptyfd, TICKIT_IO_IN|TICKIT_IO_HUP, 0, &pty_read, tframe);
-}
-
 static void get_vterm_cmd(TFrame *tframe, const char *cmd, const char *argv[], const char *env[]) {
 	tframe->vt = vterm_new(tframe->termrect.lines, tframe->termrect.cols);
 	vterm_set_utf8(tframe->vt, true);
@@ -361,17 +335,22 @@ static void get_vterm_cmd(TFrame *tframe, const char *cmd, const char *argv[], c
 	vterm_screen_enable_reflow(tframe->vts, true);
 	vterm_screen_set_callbacks(tframe->vts, &vtermscreencallbacks, tframe);
 
-	tframe->sb_current = tframe->sb_offset = 0;
+	tframe->sb_current = tframe->sb_offset = tframe->sb_head = 0;
 	tframe->sb_buffer = calloc(config.scroll_history, sizeof(ScrollbackLine *));
 
 	tframe->worker_pid = vt_forkpty(tframe, cmd, argv, env);
 	tframe->watchio = tickit_watch_io(root.tickit, tframe->controller_ptyfd, TICKIT_IO_IN|TICKIT_IO_HUP, 0, &pty_read, tframe);
 }
 
+static void get_vterm(TFrame *tframe) {
+	const char *pargs[] = { shell, NULL };
+	get_vterm_cmd(tframe, shell, pargs, NULL);
+}
+
 static void free_vterm(TFrame *tframe) {
 	if (tframe->sb_buffer) {
 		for (int i = 0; i < tframe->sb_current; i++)
-			free(tframe->sb_buffer[i]);
+			free(tframe->sb_buffer[(tframe->sb_head + i) % config.scroll_history]);
 		free(tframe->sb_buffer);
 	}
 	if (tframe->watchio)

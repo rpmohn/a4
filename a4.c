@@ -156,6 +156,7 @@ struct TFrame {
 
 	int sb_current;
 	int sb_offset;
+	int sb_head;       /* ring buffer index of most recent scrollback line */
 	ScrollbackLine **sb_buffer;
 };
 static TFrame *tframes = NULL; /* Doubly linked list of all tframes */
