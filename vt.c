@@ -258,33 +258,36 @@ static int pty_read(Tickit *t, TickitEventFlags flags, void *_info, void *data) 
 	TickitIOWatchInfo *info = _info;
 	int fd = info->fd;
 	TFrame *tframe = data;
-	//DEBUG_LOGF("Upr", "pty_read BEGIN");
 
-	/* Linux kernel's PTY buffer is a fixed 4096 bytes (1 page) so there's */
-	/* never any point reading more than that                            */
 	char buffer[BUFSIZ];
+	bool got_data = false;
 
-	ssize_t bytes = read(fd, buffer, sizeof buffer);
-
-	if (bytes < 0) {
-		DEBUG_LOGF("Upr", "read pty fd %d failed - %s", fd, strerror(errno));
-		tframe->died = true;
-		return 0;
+	/* Drain all available PTY data before flushing damage, so a burst of
+	 * output (e.g. a full-screen app redraw) results in a single render
+	 * pass rather than one per read. */
+	for (;;) {
+		ssize_t bytes = read(fd, buffer, sizeof buffer);
+		if (bytes < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				break;
+			if (errno == EINTR)
+				continue;
+			DEBUG_LOGF("Upr", "read pty fd %d failed - %s", fd, strerror(errno));
+			tframe->died = true;
+			return 0;
+		}
+		if (bytes == 0) {
+			DEBUG_LOGF("Upr", "read pty fd %d returned 0 bytes", fd);
+			quit(NULL);
+			return 0;
+		}
+		vterm_input_write(tframe->vt, buffer, bytes);
+		got_data = true;
 	}
 
-	if (bytes == 0) {
-		DEBUG_LOGF("Upr", "read pty fd %d returned 0 bytes - %s", fd, strerror(errno));
-		quit(NULL);
-		return 0;
-	}
+	if (got_data)
+		vterm_screen_flush_damage(tframe->vts);
 
-	//DEBUG_LOGF("Upr", "pty_read sending to vterm_input_write vt %p, bytes %d, buffer ::%.*s::", tframe->vt, bytes, bytes, buffer);
-	//size_t written = vterm_input_write(tframe->vt, buffer, bytes);
-	vterm_input_write(tframe->vt, buffer, bytes);
-	//DEBUG_LOGF("Upr", "Sent %d bytes to vterm_input_write", written);
-	vterm_screen_flush_damage(tframe->vts);
-
-	//DEBUG_LOGF("Upr", "pty_read END");
 	return 1;
 }
 
@@ -339,6 +342,8 @@ static void get_vterm_cmd(TFrame *tframe, const char *cmd, const char *argv[], c
 	tframe->sb_buffer = calloc(config.scroll_history, sizeof(ScrollbackLine *));
 
 	tframe->worker_pid = vt_forkpty(tframe, cmd, argv, env);
+	int flags = fcntl(tframe->controller_ptyfd, F_GETFL, 0);
+	fcntl(tframe->controller_ptyfd, F_SETFL, flags | O_NONBLOCK);
 	tframe->watchio = tickit_watch_io(root.tickit, tframe->controller_ptyfd, TICKIT_IO_IN|TICKIT_IO_HUP, 0, &pty_read, tframe);
 }
 

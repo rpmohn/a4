@@ -8,6 +8,7 @@
  *             termwin contains the actual terminal (cyan)
  */
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <locale.h>
 #include <pwd.h>
@@ -1868,8 +1869,12 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 	tickit_renderbuffer_eraserect(rb, &rect);
 
 	bool last_sel = false;
+	char run_buf[4096];
+	int run_len = 0, run_start_col = rect.left;
+
 	for (ppos.row = rect.top; ppos.row < (rect.top + rect.lines); ppos.row++) {
 		last_sel = false;
+		run_len = 0;
 		for (ppos.col = rect.left; ppos.col < (rect.left + rect.cols); ) {
 			vpos.row = ppos.row - tframe->sb_offset;
 			vpos.col = ppos.col;
@@ -1888,6 +1893,12 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 				|| (cell.attrs.strike    != lastcell.attrs.strike)
 				|| (cell.attrs.font      != lastcell.attrs.font);
 			if (colors_changed || attrs_changed || is_sel != last_sel) {
+				/* Flush accumulated text before changing the pen */
+				if (run_len > 0) {
+					run_buf[run_len] = '\0';
+					tickit_renderbuffer_text_at(rb, ppos.row, run_start_col, run_buf);
+					run_len = 0;
+				}
 				if (colors_changed) {
 					tickit_pen_set_palette_colour(pen, TICKIT_PEN_FG, &cell.fg, tframe->cs);
 					tickit_pen_set_palette_colour(pen, TICKIT_PEN_BG, &cell.bg, tframe->cs);
@@ -1909,13 +1920,11 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 			}
 
 			if (cell.chars[0] == 0) {
-				//DEBUG_LOGF("Urt", "render_termwin, empty cell fg/bg type = %d/%d,
-				//		default = %d/%d, idx = %d/%d, rgb = %02X:%02X:%02X/%02X:%02X:%02X",
-				//		cell.fg.type & VTERM_COLOR_TYPE_MASK, cell.bg.type & VTERM_COLOR_TYPE_MASK,
-				//		cell.fg.type & VTERM_COLOR_DEFAULT_MASK, cell.bg.type & VTERM_COLOR_DEFAULT_MASK,
-				//		cell.fg.indexed.idx, cell.bg.indexed.idx,
-				//		cell.fg.rgb.red, cell.fg.rgb.green, cell.fg.rgb.blue,
-				//		cell.bg.rgb.red, cell.bg.rgb.green, cell.bg.rgb.blue);
+				if (run_len > 0) {
+					run_buf[run_len] = '\0';
+					tickit_renderbuffer_text_at(rb, ppos.row, run_start_col, run_buf);
+					run_len = 0;
+				}
 				if (!vterm_screen_is_eol(tframe->vts, ppos)) {
 					tickit_renderbuffer_erase_at(rb, ppos.row, ppos.col, 1);
 				} else {
@@ -1923,15 +1932,29 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 					break;
 				}
 			} else {
-				char bytes[6 * VTERM_MAX_CHARS_PER_CELL + 1];
-				int len = 0;
-				for(int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; i++)
-					len += fill_utf8(cell.chars[i], bytes + len);
-				bytes[len] = 0;
-				tickit_renderbuffer_text_at(rb, ppos.row, ppos.col, bytes);
+				char cell_bytes[6 * VTERM_MAX_CHARS_PER_CELL];
+				int cell_len = 0;
+				for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; i++)
+					cell_len += fill_utf8(cell.chars[i], cell_bytes + cell_len);
+				if (run_len + cell_len >= (int)sizeof(run_buf) - 1) {
+					run_buf[run_len] = '\0';
+					tickit_renderbuffer_text_at(rb, ppos.row, run_start_col, run_buf);
+					run_len = 0;
+				}
+				if (run_len == 0)
+					run_start_col = ppos.col;
+				memcpy(run_buf + run_len, cell_bytes, cell_len);
+				run_len += cell_len;
 			}
 
 			ppos.col += cell.width;
+		}
+
+		/* Flush any remaining text at end of row */
+		if (run_len > 0) {
+			run_buf[run_len] = '\0';
+			tickit_renderbuffer_text_at(rb, ppos.row, run_start_col, run_buf);
+			run_len = 0;
 		}
 	}
 
