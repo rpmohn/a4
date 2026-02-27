@@ -835,6 +835,10 @@ static void set_dec_mode(VTermState *state, int num, int val)
 
   default:
     DEBUG_LOG("libvterm: Unknown DEC mode %d\n", num);
+    if(state->fallbacks && state->fallbacks->csi) {
+      long args[1] = { (long)num };
+      (*state->fallbacks->csi)("?", args, 1, "", val ? 'h' : 'l', state->fbdata);
+    }
     return;
   }
 }
