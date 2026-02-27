@@ -16,6 +16,8 @@ static int vts_settermprop(VTermProp prop, VTermValue *val, void *user);
 static int vts_bell(void *user);
 static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user);
 static int vts_sb_popline(int cols, VTermScreenCell *cells, void *user);
+static int vts_fallback_csi(const char *leader, const long args[], int argcount, const char *intermed, char command, void *user);
+static int sync_timeout(Tickit *t, TickitEventFlags flags, void *info, void *user);
 
 static void tickit_pen_set_palette_colour(TickitPen *pen, TickitPenAttr attr, VTermColor *col, ColorScheme *cs);
 static void applycolorrules(TFrame *tframe);
@@ -33,7 +35,23 @@ static int vts_damage(VTermRect vrect, void *user) {
 	TFrame *tframe = user;
 
 	TickitRect rect = TickitRect_from_VTermRect(vrect);
-	//DEBUG_LOGF("Uvd", "vts_damage vrect = %d/%d/%d/%d, rect = %d/%d/%d/%d", vrect.start_row, vrect.start_col, vrect.end_row, vrect.end_col, rect.top, rect.left, rect.lines, rect.cols);
+
+	if (tframe->sync_update) {
+		if (!tframe->sync_has_damage) {
+			tframe->sync_rect = rect;
+			tframe->sync_has_damage = true;
+		} else {
+			int top    = MIN(tframe->sync_rect.top,  rect.top);
+			int left   = MIN(tframe->sync_rect.left, rect.left);
+			int bottom = MAX(tframe->sync_rect.top  + tframe->sync_rect.lines,
+			                 rect.top  + rect.lines);
+			int right  = MAX(tframe->sync_rect.left + tframe->sync_rect.cols,
+			                 rect.left + rect.cols);
+			tickit_rect_init_bounded(&tframe->sync_rect, top, left, bottom, right);
+		}
+		return 1;
+	}
+
 	tickit_window_expose(tframe->termwin, &rect);
 	return 1;
 }
@@ -157,6 +175,49 @@ VTermScreenCallbacks vtermscreencallbacks = {
 	.bell        = vts_bell,
 	.sb_pushline = vts_sb_pushline,
 	.sb_popline  = vts_sb_popline,
+};
+
+static void sync_flush(TFrame *tframe) {
+	tframe->sync_update = false;
+	tframe->sync_timer = NULL;
+	if (tframe->sync_has_damage) {
+		tickit_window_expose(tframe->termwin, &tframe->sync_rect);
+		tframe->sync_has_damage = false;
+	}
+}
+
+static int sync_timeout(Tickit *t, TickitEventFlags flags, void *info, void *user) {
+	sync_flush(user);
+	return 0;
+}
+
+/* DEC 2026 synchronized output: ?2026h = begin, ?2026l = end */
+static int vts_fallback_csi(const char *leader, const long args[], int argcount,
+                            const char *intermed, char command, void *user) {
+	TFrame *tframe = user;
+
+	if (leader && leader[0] == '?' && leader[1] == '\0' &&
+	    argcount == 1 && args[0] == 2026) {
+		if (command == 'h') {
+			tframe->sync_update = true;
+			if (!tframe->sync_timer)
+				tframe->sync_timer = tickit_watch_timer_after_msec(
+					root.tickit, 1000, 0, &sync_timeout, tframe);
+		} else if (command == 'l') {
+			if (tframe->sync_timer) {
+				tickit_watch_cancel(root.tickit, tframe->sync_timer);
+				tframe->sync_timer = NULL;
+			}
+			sync_flush(tframe);
+		}
+		return 1;
+	}
+
+	return 0;
+}
+
+static VTermStateFallbacks vtermfallbacks = {
+	.csi = vts_fallback_csi,
 };
 
 static void tickit_pen_set_palette_colour(TickitPen *pen, TickitPenAttr attr, VTermColor *col, ColorScheme *cs) {
@@ -337,6 +398,7 @@ static void get_vterm_cmd(TFrame *tframe, const char *cmd, const char *argv[], c
 	vterm_screen_enable_altscreen(tframe->vts, true);
 	vterm_screen_enable_reflow(tframe->vts, true);
 	vterm_screen_set_callbacks(tframe->vts, &vtermscreencallbacks, tframe);
+	vterm_screen_set_unrecognised_fallbacks(tframe->vts, &vtermfallbacks, tframe);
 
 	tframe->sb_current = tframe->sb_offset = tframe->sb_head = 0;
 	tframe->sb_buffer = calloc(config.scroll_history, sizeof(ScrollbackLine *));
@@ -358,6 +420,8 @@ static void free_vterm(TFrame *tframe) {
 			free(tframe->sb_buffer[(tframe->sb_head + i) % config.scroll_history]);
 		free(tframe->sb_buffer);
 	}
+	if (tframe->sync_timer)
+		tickit_watch_cancel(root.tickit, tframe->sync_timer);
 	if (tframe->watchio)
 		tickit_watch_cancel(root.tickit, tframe->watchio);
 	//DEBUG_LOGF("Ufv", "free_vterm vt = %p", tframe->vt);

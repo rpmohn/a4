@@ -159,6 +159,11 @@ struct TFrame {
 	int sb_offset;
 	int sb_head;       /* ring buffer index of most recent scrollback line */
 	ScrollbackLine **sb_buffer;
+
+	bool sync_update;      /* DEC 2026: synchronized update in progress */
+	bool sync_has_damage;  /* damage accumulated during sync update */
+	TickitRect sync_rect;  /* accumulated damage rect during sync update */
+	void *sync_timer;      /* safety timeout handle, NULL if not armed */
 };
 static TFrame *tframes = NULL; /* Doubly linked list of all tframes */
 static TFrame *stack = NULL;   /* Stack ordered linked list of all tframes */
