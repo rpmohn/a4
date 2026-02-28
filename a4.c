@@ -1929,11 +1929,11 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 					tickit_renderbuffer_text_at(rb, ppos.row, run_start_col, run_buf);
 					run_len = 0;
 				}
-				if (!vterm_screen_is_eol(tframe->vts, ppos)) {
-					tickit_renderbuffer_erase_at(rb, ppos.row, ppos.col, 1);
-				} else {
+				if (vpos.row >= 0 && vterm_screen_is_eol(tframe->vts, vpos)) {
 					tickit_renderbuffer_erase_at(rb, ppos.row, ppos.col, tframe->rect.cols - ppos.col);
 					break;
+				} else {
+					tickit_renderbuffer_erase_at(rb, ppos.row, ppos.col, 1);
 				}
 			} else {
 				char cell_bytes[6 * VTERM_MAX_CHARS_PER_CELL];
