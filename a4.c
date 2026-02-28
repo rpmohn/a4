@@ -1871,7 +1871,6 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 		pen = tickit_pen_new();
 
 	DEBUG_LOGF("Urt", "render_termwin rect = %d/%d/%d/%d, tframe = %p", rect.top, rect.left, rect.lines, rect.cols, tframe);
-	tickit_renderbuffer_eraserect(rb, &rect);
 
 	bool last_sel = false;
 	char run_buf[4096];
