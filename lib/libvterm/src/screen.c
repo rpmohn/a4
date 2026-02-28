@@ -760,19 +760,34 @@ static int resize(int new_rows, int new_cols, VTermStateFields *fields, void *us
     screen->sb_buffer = vterm_allocator_malloc(screen->vt, sizeof(VTermScreenCell) * new_cols);
   }
 
-  resize_buffer(screen, 0, new_rows, new_cols, !altscreen_active, fields);
-  if(screen->buffers[BUFIDX_ALTSCREEN])
-    resize_buffer(screen, 1, new_rows, new_cols, altscreen_active, fields);
-  else if(new_rows != old_rows) {
-    /* We don't need a full resize of the altscreen because it isn't enabled
-     * but we should at least keep the lineinfo the right size */
-    vterm_allocator_free(screen->vt, fields->lineinfos[BUFIDX_ALTSCREEN]);
+  if(altscreen_active) {
+    /* Use the configured default colors for new cells in the inactive primary
+     * buffer so that the altscreen's current pen doesn't bleed into the
+     * primary screen during resize. */
+    VTermColor default_fg, default_bg;
+    vterm_state_get_default_colors(screen->state, &default_fg, &default_bg);
+    ScreenPen saved_pen = screen->pen;
+    screen->pen.fg = default_fg;
+    screen->pen.bg = default_bg;
+    resize_buffer(screen, 0, new_rows, new_cols, false, fields);
+    screen->pen = saved_pen;
+    resize_buffer(screen, 1, new_rows, new_cols, true, fields);
+  }
+  else {
+    resize_buffer(screen, 0, new_rows, new_cols, true, fields);
+    if(screen->buffers[BUFIDX_ALTSCREEN])
+      resize_buffer(screen, 1, new_rows, new_cols, false, fields);
+    else if(new_rows != old_rows) {
+      /* We don't need a full resize of the altscreen because it isn't enabled
+       * but we should at least keep the lineinfo the right size */
+      vterm_allocator_free(screen->vt, fields->lineinfos[BUFIDX_ALTSCREEN]);
 
-    VTermLineInfo *new_lineinfo = vterm_allocator_malloc(screen->vt, sizeof(new_lineinfo[0]) * new_rows);
-    for(int row = 0; row < new_rows; row++)
-      new_lineinfo[row] = (VTermLineInfo){ 0 };
+      VTermLineInfo *new_lineinfo = vterm_allocator_malloc(screen->vt, sizeof(new_lineinfo[0]) * new_rows);
+      for(int row = 0; row < new_rows; row++)
+        new_lineinfo[row] = (VTermLineInfo){ 0 };
 
-    fields->lineinfos[BUFIDX_ALTSCREEN] = new_lineinfo;
+      fields->lineinfos[BUFIDX_ALTSCREEN] = new_lineinfo;
+    }
   }
 
   screen->buffer = altscreen_active ? screen->buffers[BUFIDX_ALTSCREEN] : screen->buffers[BUFIDX_PRIMARY];
