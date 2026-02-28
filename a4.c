@@ -1937,9 +1937,15 @@ static int render_termwin(TickitWindow *win, TickitEventFlags flags, void *_info
 				}
 			} else {
 				char cell_bytes[6 * VTERM_MAX_CHARS_PER_CELL];
-				int cell_len = 0;
-				for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; i++)
-					cell_len += fill_utf8(cell.chars[i], cell_bytes + cell_len);
+				int cell_len;
+				if (cell.chars[0] < 0x80 && cell.chars[1] == 0) {
+					cell_bytes[0] = (char)cell.chars[0];
+					cell_len = 1;
+				} else {
+					cell_len = 0;
+					for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; i++)
+						cell_len += fill_utf8(cell.chars[i], cell_bytes + cell_len);
+				}
 				if (run_len + cell_len >= (int)sizeof(run_buf) - 1) {
 					run_buf[run_len] = '\0';
 					tickit_renderbuffer_text_at(rb, ppos.row, run_start_col, run_buf);
