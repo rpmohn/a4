@@ -47,18 +47,6 @@
 { "F11",       VTERM_KEY_FUNCTION(11) },
 { "F12",       VTERM_KEY_FUNCTION(12) },
 
-{ "S-F1",      VTERM_KEY_FUNCTION(11) },
-{ "S-F2",      VTERM_KEY_FUNCTION(12) },
-{ "S-F3",      VTERM_KEY_FUNCTION(13) },
-{ "S-F4",      VTERM_KEY_FUNCTION(14) },
-{ "S-F5",      VTERM_KEY_FUNCTION(15) },
-{ "S-F6",      VTERM_KEY_FUNCTION(16) },
-{ "S-F7",      VTERM_KEY_FUNCTION(17) },
-{ "S-F8",      VTERM_KEY_FUNCTION(18) },
-{ "S-F9",      VTERM_KEY_FUNCTION(19) },
-{ "S-F10",     VTERM_KEY_FUNCTION(20) },
-{ "S-F11",     VTERM_KEY_FUNCTION(21) },
-{ "S-F12",     VTERM_KEY_FUNCTION(22) },
 
 { "F13",       VTERM_KEY_FUNCTION(11) },
 { "F14",       VTERM_KEY_FUNCTION(12) },

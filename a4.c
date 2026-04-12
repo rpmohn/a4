@@ -577,7 +577,16 @@ static void keypress(TickitKeyEventInfo *key, const char *seq) {
 				} else { // TICKIT_KEYEV_KEY
 					VTermKey k = strp_key(key->str);
 					if (k == VTERM_KEY_NONE) {
-						/* strip key->str */
+						/* termkey_strfkey encodes modifiers as a prefix in the string
+						 * (e.g., "S-Delete") and also sets key->mod. Try stripping the
+						 * prefix so the base name matches an entry in keynames.inc */
+						const char *keyname = key->str;
+						while (keyname[1] == '-' && strchr("SMCA", keyname[0]))
+							keyname += 2;
+						k = strp_key(keyname);
+					}
+					if (k == VTERM_KEY_NONE) {
+						/* fallback for single-char modifier combos like "C-a" */
 						char *r = strrchr(key->str, '-');
 						if (r == &key->str[strlen(key->str)] - 1) {
 							//DEBUG_LOGF("Ukt", "keypress strp_key(%s) = %d, r[0] = %s", key->str, k, r);
