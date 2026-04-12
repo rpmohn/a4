@@ -824,6 +824,9 @@ static bool special_keyword(Config *cfg, const char *name, const char *value) {
 	} else if (strcasecmp(value, "tagtoggle #") == 0) {
 		expand_tag_keybinding_action(cfg, name, "tagtoggle");
 		return true;
+	} else if (strcasecmp(value, "movewin #") == 0) {
+		expand_num_keybinding_action(cfg, name, "movewin");
+		return true;
 	}
 
 	return false;

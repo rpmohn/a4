@@ -316,6 +316,7 @@ static void parse_args(int argc, char *argv[]);
 	X(keysequence)        \
 	X(layout)             \
 	X(minimize)           \
+	X(movewin)            \
 	X(paste)              \
 	X(noaction)           \
 	X(quit)               \
@@ -1787,6 +1788,56 @@ static void minimize(char *args[]) {
 	arrange();
 	if (savesel)
 		dofocus(savesel);
+}
+
+static void movewin(char *args[]) {
+	if (!sel || sel->minimized || !args || !args[0])
+		return;
+
+	int target = atoi(args[0]);
+
+	/* count non-minimized visible windows */
+	int n = 0;
+	for (TFrame *t = nextvisible(tframes); t; t = nextvisible(t->next))
+		if (!t->minimized)
+			n++;
+
+	if (n <= 1)
+		return;
+
+	/* clamp target to [1, n] */
+	if (target < 1) target = 1;
+	if (target >= n) target = n;
+
+	/* already at target position */
+	if ((int)sel->order == target)
+		return;
+
+	TFrame *tframe = sel;
+	detach(tframe);
+
+	if (target == 1) {
+		attach(tframe);
+	} else {
+		/* find the (target-1)th non-minimized window */
+		TFrame *prev = NULL;
+		int count = 0;
+		for (TFrame *t = nextvisible(tframes); t; t = nextvisible(t->next)) {
+			if (!t->minimized) {
+				count++;
+				if (count == target - 1) {
+					prev = t;
+					break;
+				}
+			}
+		}
+		if (prev)
+			attachafter(tframe, prev);
+		else
+			attach(tframe);
+	}
+
+	arrange();
 }
 
 static void expose_all_tbars(void) {
