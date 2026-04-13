@@ -1791,10 +1791,15 @@ static void minimize(char *args[]) {
 }
 
 static void movewin(char *args[]) {
-	if (!sel || sel->minimized || !args || !args[0])
+	if (!sel || !args || !args[0])
 		return;
 
 	int target = atoi(args[0]);
+	bool was_minimized = sel->minimized;
+
+	/* clear minimized flag before counting so sel is included */
+	if (was_minimized)
+		sel->minimized = false;
 
 	/* count non-minimized visible windows */
 	int n = 0;
@@ -1809,8 +1814,8 @@ static void movewin(char *args[]) {
 	if (target < 1) target = 1;
 	if (target >= n) target = n;
 
-	/* already at target position */
-	if ((int)sel->order == target)
+	/* already at target position and wasn't minimized */
+	if (!was_minimized && (int)sel->order == target)
 		return;
 
 	TFrame *tframe = sel;
