@@ -102,6 +102,26 @@ curl -fsSL https://github.com/rpmohn/a4/releases/latest/download/install-local.s
 
 ## Notes
 
+### Copy Mode
+
+Copy mode (`Ctrl-g e`) opens the scrollback buffer and current screen contents
+of the focused terminal in an editor. The editor is specified by the
+`copymode_editor` setting in `a4.ini`, or the `$EDITOR` environment variable,
+or defaults to `vi`. The editor receives two file path arguments: `$1` is the
+input file containing the terminal content, and `$2` is an output file. Any
+text written to `$2` when the editor exits is saved to the a4 paste buffer and
+placed on the system clipboard. (The `$2` argument may be ignored.) Use `Ctrl-g
+p` to paste the buffer into the focused terminal.
+
+A simple customization to use less::
+```ini
+copymode_editor = sh -c 'less "$1"' --
+```
+A customization to use a fuzzy finder for quick selection to the paste buffer and system clipboard:
+```ini
+copymode_editor = sh -c 'cat "$1" | fzf --multi > "$2"' --
+```
+
 ### Mouse Support
 
 There's a configuration error in the xterm-256color file installed
