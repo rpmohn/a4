@@ -9,7 +9,8 @@ a4 \- a dynamic terminal manager
 .B a4
 is a dynamic terminal window manager. One of eight tiling layouts is dynamically applied to all visible terminals.
 The terminal windows are grouped by tags making it easy to visually switch between contexts of work.
-a4 automatically runs in a persistent session from which you can detach and reconnect.
+.B a4
+automatically runs in a named persistent session from which you can detach and reconnect.
 Any number of named sessions can exist simultaneously.
 Color schemes are dynamically applied to each terminal window, based on the text in its titlebar,
 helping the user to visually identify terminals based on attributes such as hostname, userid,
@@ -124,11 +125,22 @@ Set all tags on the focused terminal window.
 Focus terminal window number
 .BR n .
 .TP
+.B Ctrl\-g m [1..n]
+Move the focused terminal window to position
+.B n
+in the window order.
+.TP
 .B Ctrl\-g j
 Focus next terminal window.
 .TP
 .B Ctrl\-g k
 Focus previous terminal window.
+.TP
+.B Ctrl\-g Ctrl\-j
+Focus next visible terminal window, skipping minimized windows.
+.TP
+.B Ctrl\-g Ctrl\-k
+Focus previous visible terminal window, skipping minimized windows.
 .TP
 .B Ctrl\-g Tab
 Focus the last selected terminal window.
@@ -158,6 +170,20 @@ are not be typed into, even if they are included in the focused group.
 .B Ctrl\-g *
 Toggle read-only status of the focused terminal window so that no keypresses
 are sent to it.
+.TP
+.B Ctrl\-g e
+Open copy mode in the focused terminal window. The terminal buffer is passed as
+file $1 to a command for browsing and selection. A second file, $2, is also passed
+and any text written to it is saved to both the
+.B a4
+paste buffer and and system clipboard. File $2 may also just be ignored. See
+.B copymode
+below.
+.TP
+.B Ctrl\-g p
+Paste the contents of the
+.B a4
+paste buffer into the focused terminal window.
 .TP
 .B Ctrl\-a f
 Set layout to full screen.
@@ -210,6 +236,15 @@ Scroll backward/forward half a screen in the focused terminal window.
 .B Ctrl\-g PageUp/PageDown
 Scroll backward/forward a full screen in the focused terminal window.
 .SS Mouse in terminal window
+Note that when a terminal application uses the alternate screen (such as vim,
+btop, or less), mouse events are passed through directly to the application
+instead of being handled by
+.BR a4 .
+Hold
+.B Ctrl
+while pressing or dragging Button1 to override this and perform text selection in
+.B a4
+instead.
 .TP
 .B Button1 click
 Focus the selected terminal window.
@@ -236,6 +271,10 @@ Scroll backward/forward half a screen in the terminal window that the mouse is h
 .TP
 .B Ctrl\-ScrollWheel up/down
 Scroll backward/forward a full screen in the terminal window that the mouse is hovering over.
+.TP
+.B Button1 drag
+Select text in a terminal window. The selected text is automatically copied to
+the system clipboard when the button is released.
 .SS Mouse in title bar
 .TP
 .B Button1 click
@@ -316,7 +355,8 @@ Any Key/Mouse Combination assigned in any of the Action sections may be cancelle
 Having different terminal color schemes dynamically applied helps to identify and keep track of all the different terminals with which you're working. The first step is to have different color schemes defined for use by the ColorRules later.
 Terminals typically have a default foreground (fg) color, background (bg)
 color, and 16 standard colors that are used by terminal applications. They
-can also define color numbers up to 255, but the are used less often. In a4,
+can also define color numbers up to 255, but they are used less often. In
+.B a4 ,
 you can define ColorSchemes that are then applied to terminal windows
 dynamically by comparing the terminal's title text to defined ColorRules (see
 below). The first defined ColorScheme is used by default for all windows.
@@ -377,6 +417,20 @@ then
 refers to all windows in the
 .BR "focus group" .
 .SS Actions that can be mapped to keyboard and mouse events
+.TP
+.B copymode
+Open copy mode for the focused terminal window. The scrollback buffer and
+current screen contents are written to a temporary input file and passed as $1
+to the editor command. A second temporary output file is passed as $2. Any text
+written to the $2 output file is saved to the
+.B a4
+paste buffer and placed on the system clipboard. The $2 output file may also be
+ignored. The editor command is taken from the
+.B copymode_editor
+INI setting, then the
+.B EDITOR
+environment variable, then defaults to
+.BR vi .
 .TP
 .B create
 Create a new terminal window and is assigned the currently selected tags. The new window is placed in the #1 position in the order of all visible windows.
@@ -456,6 +510,33 @@ sets the layout to whatever was previously set.
 .TP
 .B minimize
 Minimize/unminimize the selected or mouse-selected terminal window.
+.TP
+.BR movewin " [1\-9 | #]"
+Move the focused terminal window to position
+.B n
+in the window order.
+If the window is minimized, it is unminimized and placed at the specified
+position.
+A value of
+.B 0
+or
+.B 1
+moves the window to position 1.
+Any value greater than or equal to the number of non-minimized windows moves
+it to the last non-minimized position.
+Minimized windows are not counted when determining the last position.
+When
+.B #
+is used in the mapping instead of a numeral, the mapping is automatically
+expanded to nine separate mappings with the
+.B #
+character on both sides of the assignment replaced by the numerals
+.BR 1\-9 .
+.TP
+.B paste
+Paste the contents of the
+.B a4
+paste buffer into the focused terminal window.
 .TP
 .B quit
 Force close all terminals and exit
@@ -576,6 +657,11 @@ All processes running within
 .B a4
 have this variable set to the version.
 .TP
+.B A4_SESSION
+Set to the session name when running inside a session. Prevents a nested
+.B a4
+started from a startup command from recursively re-attaching to the same session.
+.TP
 .B TERM
 In general, just use whatever the underlying terminal defaults to for this
 variable. If there's any question, use
@@ -588,6 +674,13 @@ or
 .B truecolor
 in the underlying terminal and restart
 .BR a4 .
+.TP
+.B EDITOR
+Used by copy mode as the default editor when
+.B copymode_editor
+is not set in the INI file. Defaults to
+.B vi
+if neither is set.
 .SH FILES
 .TP
 .B a4.ini
@@ -614,19 +707,20 @@ color theme settings;
 defines the Solarized terminal color schemes, which may be used in color rules;
 .B vt220.ini
 defines the vt220 ANSI escape codes for terminal overrides.
+.TP
+.B $XDG_STATE_HOME/a4/name@hostname
+Session socket file for the named session, where
+.I name
+is the session name and
+.I hostname
+is the short hostname of the machine running the session.
+.B $XDG_STATE_HOME
+defaults to
+.BR $HOME/.local/state .
+One socket file exists per active session; use
+.B a4 \-l
+to list all active sessions on the current host.
 .SH NOTES
-It is useful to run
-.B a4
-with
-.BR abduco (1)
-so that you can disconnect and reconnect while your
-.B a4
-session continues to run in the background. This is also helpful if you run
-.B a4
-on remote machines since the session continues to run even if your connection to the machine is lost, and you can reconnect later without losing any of your work.
-Consider setting a alias such as
-.BR "alias a4.abduco=""abduco -A a4 a4 $@""" .
-.P
 There's a configuration error in the
 .B xterm-256color
 file installed by some Linux distros that causes the mouse to behave incorrectly by printing characters to the terminal.
@@ -639,5 +733,4 @@ More documentation of
 can be found at
 .B https://a4term.com/
 .SH SEE ALSO
-.BR abduco (1),
 .BR a4-keycodes (1)
