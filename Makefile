@@ -54,16 +54,21 @@ portable: distclean
 	@$(MAKE) portable-arch ARCH=arm64 ZIG_TARGET=aarch64-linux-gnu.2.17
 	@$(MAKE) portable-arch ARCH=armv7 ZIG_TARGET=arm-linux-gnueabihf.2.17
 
+portable-musl: distclean
+	@$(MAKE) portable-arch ARCH=x86_64-musl ZIG_TARGET=x86_64-linux-musl LDLIBS=
+	@$(MAKE) portable-arch ARCH=arm64-musl ZIG_TARGET=aarch64-linux-musl LDLIBS=
+	@$(MAKE) portable-arch ARCH=armv7-musl ZIG_TARGET=arm-linux-musleabihf LDLIBS=
+
 portable-arch:
-	@$(MAKE) CC='zig cc -target $(ZIG_TARGET)' a4
+	@$(MAKE) CC='zig cc -target $(ZIG_TARGET)' LDLIBS='$(LDLIBS)' a4
 	mv a4 a4-$(ARCH)
-	@$(MAKE) CC='zig cc -target $(ZIG_TARGET)' extras/a4-keycodes
+	@$(MAKE) CC='zig cc -target $(ZIG_TARGET)' LDLIBS='$(LDLIBS)' extras/a4-keycodes
 	mv extras/a4-keycodes extras/a4-keycodes-$(ARCH)
 	rm -f $(obj)
 
-release: portable
+release: portable portable-musl
 	rm -rf release && mkdir -p release
-	for arch in x86_64 arm64 armv7; do \
+	for arch in x86_64 arm64 armv7 x86_64-musl arm64-musl armv7-musl; do \
 		rm -rf a4-$(VERSION)-$$arch && mkdir -p a4-$(VERSION)-$$arch; \
 		cp -p a4-$$arch a4-$(VERSION)-$$arch/a4; \
 		cp -p extras/a4-keycodes-$$arch a4-$(VERSION)-$$arch/a4-keycodes; \
@@ -81,7 +86,9 @@ clean:
 
 distclean: clean
 	rm -f $(obj)
-	rm -f a4-x86_64 a4-arm64 a4-armv7 extras/a4-keycodes-x86_64 extras/a4-keycodes-arm64 extras/a4-keycodes-armv7
+	rm -f a4-x86_64 a4-arm64 a4-armv7 a4-x86_64-musl a4-arm64-musl a4-armv7-musl \
+		extras/a4-keycodes-x86_64 extras/a4-keycodes-arm64 extras/a4-keycodes-armv7 \
+		extras/a4-keycodes-x86_64-musl extras/a4-keycodes-arm64-musl extras/a4-keycodes-armv7-musl
 	rm -rf a4-$(VERSION)-*.tar.gz release
 
 #### inih library, commit d6e9d1b 20221202 https://github.com/benhoyt/inih.git ####

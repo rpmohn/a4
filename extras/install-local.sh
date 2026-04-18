@@ -12,6 +12,11 @@ case "$(uname -m)" in
     *) echo "Unsupported architecture, $(uname -m), please submit an issue"; exit 1 ;;
 esac
 
+# Detect musl libc
+if ldd /bin/sh 2>&1 | grep -qi musl; then
+    ARCH="$ARCH-musl"
+fi
+
 SRC="https://github.com/rpmohn/$APP/releases/download/$VER/$APP-$VER-$ARCH.tar.gz"
 
 DEST="$HOME/.local"
