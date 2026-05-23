@@ -865,11 +865,22 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 		}
 	}
 
-	/* Pane-aware mouse selection: button-1 press/drag/release in TERM area
-	 * Accepts unmodified or Ctrl-modified (Ctrl for altscreen override) */
-	if (mw && mw->type == TERM && mw->tframe && m->button == 1 &&
-			(m->mod == 0 || m->mod == TICKIT_MOD_CTRL || selection.state != SEL_NONE)) {
-		TFrame *tf = mw->tframe;
+	/* During an active selection, drag/release always route to the selection's
+	 * TFrame so the selection continues even if the cursor leaves that pane. */
+	bool sel_in_progress = (selection.state == SEL_STARTED ||
+	                        selection.state == SEL_ACTIVE);
+	bool is_sel_drag = sel_in_progress && selection.tframe && m->button == 1 &&
+	                   (m->type == TICKIT_MOUSEEV_DRAG ||
+	                    m->type == TICKIT_MOUSEEV_RELEASE);
+
+	/* Pane-aware mouse selection: button-1 press/drag/release in TERM area.
+	 * Accepts unmodified or Ctrl-modified (Ctrl for altscreen override).
+	 * is_sel_drag widens the condition so in-progress drag/release always enter
+	 * the block regardless of which pane (or non-pane) the cursor is over. */
+	if ((mw && mw->type == TERM && mw->tframe && m->button == 1 &&
+			(m->mod == 0 || m->mod == TICKIT_MOD_CTRL || sel_in_progress)) ||
+			is_sel_drag) {
+		TFrame *tf = is_sel_drag ? selection.tframe : mw->tframe;
 		int term_row = m->line - frame.rect.top - tf->rect.top - 1;
 		int term_col = m->col - tf->rect.left;
 
