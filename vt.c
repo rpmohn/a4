@@ -371,6 +371,9 @@ static pid_t vt_forkpty(TFrame *tframe, const char *p, const char *argv[], const
 			if (close(fd) == -1 && errno == EBADF)
 				break;
 
+		if (pending_cwd)
+			chdir(pending_cwd);
+
 		for (const char **envp = env; envp && envp[0]; envp += 2)
 			setenv(envp[0], envp[1], 1);
 

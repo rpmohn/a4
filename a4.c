@@ -204,6 +204,7 @@ static MWin deferred_mwin;
 static void *deferred_watch = NULL;
 
 static bool altscreen_drag_active = false;
+static const char *pending_cwd = NULL;
 static bool word_select_mode = false;
 static struct {
 	int row, start_col, end_col;
@@ -2307,7 +2308,18 @@ static void noaction(char *args[]) {
 }
 
 static void create(char *args[]) {
+	char cwd_buf[PATH_MAX];
+	if (args && args[0] && strcmp(args[0], "cwd") == 0 && sel) {
+		char proc_path[32];
+		snprintf(proc_path, sizeof(proc_path), "/proc/%d/cwd", sel->worker_pid);
+		ssize_t len = readlink(proc_path, cwd_buf, sizeof(cwd_buf) - 1);
+		if (len > 0) {
+			cwd_buf[len] = '\0';
+			pending_cwd = cwd_buf;
+		}
+	}
 	create_tframe();
+	pending_cwd = NULL;
 	arrange();
 }
 
