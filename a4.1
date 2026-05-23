@@ -245,14 +245,14 @@ instead of being handled by
 .BR a4 .
 Hold
 .B Ctrl
-while pressing or dragging Button1 to override this and perform text selection in
+while pressing and dragging Button1 to override this and perform text selection in
 .B a4
 instead.
 .TP
 .B Button1 click
 Focus the selected terminal window.
 .TP
-.B Ctrl\-Button1 click
+.B Button1 double click
 Zoom the selected terminal window to the top of the window stack, to be window
 #1, or swap with the next window if it is already #1.
 .TP
@@ -261,7 +261,7 @@ Toggle the selected terminal window to be part of a group of one or more
 focused windows for simultaneous typing. Minimized and read-only windows are
 not be typed into, even if they are included in the focused group.
 .TP
-.B Ctrl\-Button3 click
+.B Button3 double click
 Toggle all visible terminal windows to be grouped for simultaneous typing.
 Minimized and read-only windows not be typed into, even if they are included
 in the focused group.
@@ -277,7 +277,8 @@ Scroll backward/forward a full screen in the terminal window that the mouse is h
 .TP
 .B Button1 drag
 Select text in a terminal window. The selected text is automatically copied to
-the system clipboard when the button is released.
+the system clipboard when the button is released. Double click and drag selects
+text by word boundary rather than by character.
 .SS Mouse in title bar
 .TP
 .B Button1 click
