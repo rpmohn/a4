@@ -180,13 +180,18 @@ typedef struct {
 } MWin;
 static MWin mwin;
 
-typedef enum { SEL_NONE = 0, SEL_STARTED, SEL_ACTIVE } SelState;
+typedef enum { SEL_NONE = 0, SEL_ACTIVE } SelState;
 static struct {
 	SelState state;
 	TFrame *tframe;
 	int start_row, start_col;
 	int end_row, end_col;
 } selection;
+
+static struct {
+	TFrame *tframe;
+	int start_row, start_col;
+} sel_pending;
 
 static char *paste_buffer = NULL;
 
@@ -851,36 +856,45 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 		//DEBUG_LOGF("Umt", "mwin.type = %d, mwin.tframe = %p", mwin.type, mwin.tframe);
 	}
 
+	/* For altscreen terminals, forward events to the PTY. PRESS and RELEASE
+	 * also fall through to curkeymouse so click-1 bindings work normally.
+	 * Ctrl+button-1 and in-progress selections bypass this to allow pane-aware
+	 * selection even in altscreen. */
+	bool altscreen_passthrough = false;
 	if (mw && mw->type == TERM && mw->tframe && mw->tframe->altscreen) {
-		/* Ctrl+button-1 overrides altscreen to allow pane-aware selection */
 		bool ctrl_sel = (m->button == 1 && m->mod == TICKIT_MOD_CTRL);
-		bool sel_continuing = (m->button == 1 && selection.state != SEL_NONE && selection.tframe == mw->tframe);
+		bool sel_continuing = (m->button == 1 &&
+			((selection.state != SEL_NONE && selection.tframe == mw->tframe) ||
+			 sel_pending.tframe == mw->tframe));
 		if (!ctrl_sel && !sel_continuing) {
-			if (m->type == TICKIT_MOUSEEV_PRESS)
-				dofocus(mw->tframe);
-			else
-				mwin.type = NONE;
 			altscreenmouse(mw->tframe, m);
-			return 1;
+			if (m->type == TICKIT_MOUSEEV_PRESS || m->type == TICKIT_MOUSEEV_RELEASE) {
+				altscreen_passthrough = true;
+			} else {
+				mwin.type = NONE;
+				return 1;
+			}
 		}
 	}
 
-	/* During an active selection, drag/release always route to the selection's
-	 * TFrame so the selection continues even if the cursor leaves that pane. */
-	bool sel_in_progress = (selection.state == SEL_STARTED ||
-	                        selection.state == SEL_ACTIVE);
-	bool is_sel_drag = sel_in_progress && selection.tframe && m->button == 1 &&
+	/* During a pending or active selection, drag/release always route to the
+	 * selection's TFrame so the selection continues even if the cursor leaves
+	 * that pane. */
+	bool sel_in_progress = (selection.state == SEL_ACTIVE || sel_pending.tframe != NULL);
+	TFrame *sel_tf = (selection.state == SEL_ACTIVE) ? selection.tframe : sel_pending.tframe;
+	bool is_sel_drag = sel_in_progress && sel_tf && m->button == 1 &&
 	                   (m->type == TICKIT_MOUSEEV_DRAG ||
 	                    m->type == TICKIT_MOUSEEV_RELEASE);
 
 	/* Pane-aware mouse selection: button-1 press/drag/release in TERM area.
 	 * Accepts unmodified or Ctrl-modified (Ctrl for altscreen override).
 	 * is_sel_drag widens the condition so in-progress drag/release always enter
-	 * the block regardless of which pane (or non-pane) the cursor is over. */
-	if ((mw && mw->type == TERM && mw->tframe && m->button == 1 &&
+	 * the block regardless of which pane (or non-pane) the cursor is over.
+	 * Skipped for altscreen passthroughs — those go directly to curkeymouse. */
+	if ((!altscreen_passthrough && mw && mw->type == TERM && mw->tframe && m->button == 1 &&
 			(m->mod == 0 || m->mod == TICKIT_MOD_CTRL || sel_in_progress)) ||
 			is_sel_drag) {
-		TFrame *tf = is_sel_drag ? selection.tframe : mw->tframe;
+		TFrame *tf = is_sel_drag ? sel_tf : mw->tframe;
 		int term_row = m->line - frame.rect.top - tf->rect.top - 1;
 		int term_col = m->col - tf->rect.left;
 
@@ -892,20 +906,21 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 
 		if (m->type == TICKIT_MOUSEEV_PRESS) {
 			selection_clear();
-			selection.tframe = tf;
-			selection.start_row = term_row;
-			selection.start_col = term_col;
-			selection.end_row = term_row;
-			selection.end_col = term_col;
-			selection.state = SEL_STARTED;
-			dofocus(tf);
-			return 1;
-		} else if (m->type == TICKIT_MOUSEEV_DRAG &&
-				   (selection.state == SEL_STARTED || selection.state == SEL_ACTIVE) &&
-				   selection.tframe == tf) {
+			sel_pending.tframe = tf;
+			sel_pending.start_row = term_row;
+			sel_pending.start_col = term_col;
+		} else if (m->type == TICKIT_MOUSEEV_DRAG && sel_in_progress) {
+			if (sel_pending.tframe) {
+				selection.tframe = sel_pending.tframe;
+				selection.start_row = sel_pending.start_row;
+				selection.start_col = sel_pending.start_col;
+				sel_pending.tframe = NULL;
+			}
 			selection.state = SEL_ACTIVE;
 			selection.end_row = term_row;
 			selection.end_col = term_col;
+			curkeys_index = 0;
+			memset(curkeys, 0, sizeof(curkeys));
 			tickit_window_expose(tf->termwin, NULL);
 			return 1;
 		} else if (m->type == TICKIT_MOUSEEV_RELEASE && selection.state == SEL_ACTIVE) {
@@ -915,15 +930,17 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 				free(text);
 			}
 			selection_clear();
+			curkeys_index = 0;
+			memset(curkeys, 0, sizeof(curkeys));
 			mwin.type = NONE;
 			return 1;
-		} else if (m->type == TICKIT_MOUSEEV_RELEASE && selection.state == SEL_STARTED) {
-			/* Click with no drag: clear and fall through to binding system */
-			selection.state = SEL_NONE;
-			selection.tframe = NULL;
+		} else if (m->type == TICKIT_MOUSEEV_RELEASE && sel_pending.tframe) {
+			/* Click with no drag: clear pending and fall through to binding system */
+			sel_pending.tframe = NULL;
 		}
-	} else if (selection.state != SEL_NONE) {
-		/* Any other event clears selection */
+	} else if (selection.state != SEL_NONE || sel_pending.tframe != NULL) {
+		/* Any other event clears selection and pending */
+		sel_pending.tframe = NULL;
 		selection_clear();
 	}
 
