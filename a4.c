@@ -1762,9 +1762,8 @@ static void focus(char *args[]) {
 		if (lastsel)
 			dofocus(lastsel);
 	} else if (ARGS0EQ("group")) {
-		if (mwin.type == TERM || mwin.type == TBAR)
-			dofocus(mwin.tframe);
-		sel->groupedfocus = !sel->groupedfocus;
+		TFrame *target = (mwin.type == TERM || mwin.type == TBAR) ? mwin.tframe : sel;
+		target->groupedfocus = !target->groupedfocus;
 		expose_all_tbars();
 	} else if (ARGS0EQ("groupall") || ARGS0EQ("0")) {
 		sel->groupedfocus = !sel->groupedfocus;
