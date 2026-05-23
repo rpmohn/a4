@@ -203,6 +203,12 @@ static KeyBinding *deferred_binding = NULL;
 static MWin deferred_mwin;
 static void *deferred_watch = NULL;
 
+static bool altscreen_drag_active = false;
+static bool word_select_mode = false;
+static struct {
+	int row, start_col, end_col;
+} word_anchor;
+
 static char *paste_buffer = NULL;
 
 static struct {
@@ -404,7 +410,7 @@ static void curkeymouse(TickitMouseEventInfo *m) {
 			snprintf(s, remaining, double_click_pending ? "dbl-press-%d" : "press-%d", m->button);
 			break;
 		case TICKIT_MOUSEEV_DRAG:
-			snprintf(s, remaining, "drag-%d", m->button);
+			snprintf(s, remaining, double_click_pending ? "dbl-drag-%d" : "drag-%d", m->button);
 			break;
 		case TICKIT_MOUSEEV_RELEASE:
 			if (double_click_pending) {
@@ -861,6 +867,27 @@ static void selection_to_clipboard(const char *text) {
 	free(encoded);
 }
 
+static bool is_word_char(TFrame *tf, int vrow, int col) {
+	if (col < 0 || col >= tf->termrect.cols) return false;
+	VTermPos vpos = { .row = vrow, .col = col };
+	VTermScreenCell cell;
+	fetch_cell(tf, vpos, &cell);
+	return cell.chars[0] != 0 && cell.chars[0] != ' ';
+}
+
+static void find_word_boundary(TFrame *tf, int row, int col, int *word_start, int *word_end) {
+	int vrow = row - tf->sb_offset;
+	int maxcol = tf->termrect.cols - 1;
+	int start = col;
+	while (start > 0 && is_word_char(tf, vrow, start - 1))
+		start--;
+	int end = col;
+	while (end < maxcol && is_word_char(tf, vrow, end + 1))
+		end++;
+	*word_start = start;
+	*word_end = end;
+}
+
 /* Returns true if a dbl-click-N binding exists that corresponds to the
  * press-N currently in curkeys[0], including any modifier prefix. */
 static bool has_dbl_click_counterpart(void) {
@@ -906,9 +933,19 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 			 sel_pending.tframe == mw->tframe));
 		if (!ctrl_sel && !sel_continuing) {
 			altscreenmouse(mw->tframe, m);
-			if (m->type == TICKIT_MOUSEEV_PRESS || m->type == TICKIT_MOUSEEV_RELEASE) {
+			if (m->type == TICKIT_MOUSEEV_PRESS) {
+				altscreen_drag_active = false;
+				altscreen_passthrough = true;
+			} else if (m->type == TICKIT_MOUSEEV_RELEASE) {
+				if (altscreen_drag_active) {
+					altscreen_drag_active = false;
+					mwin.type = NONE;
+					return true;
+				}
 				altscreen_passthrough = true;
 			} else {
+				if (m->type == TICKIT_MOUSEEV_DRAG)
+					altscreen_drag_active = true;
 				mwin.type = NONE;
 				return true;
 			}
@@ -944,6 +981,15 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 
 		if (m->type == TICKIT_MOUSEEV_PRESS) {
 			selection_clear();
+			word_select_mode = false;
+			if (double_click_pending) {
+				int wstart, wend;
+				find_word_boundary(tf, term_row, term_col, &wstart, &wend);
+				word_anchor.row = term_row;
+				word_anchor.start_col = wstart;
+				word_anchor.end_col = wend;
+				word_select_mode = true;
+			}
 			sel_pending.tframe = tf;
 			sel_pending.start_row = term_row;
 			sel_pending.start_col = term_col;
@@ -955,11 +1001,39 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 				sel_pending.tframe = NULL;
 			}
 			selection.state = SEL_ACTIVE;
-			selection.end_row = term_row;
-			selection.end_col = term_col;
+			if (word_select_mode) {
+				int wstart, wend;
+				find_word_boundary(tf, term_row, term_col, &wstart, &wend);
+				bool before_anchor = (term_row < word_anchor.row ||
+				    (term_row == word_anchor.row && term_col < word_anchor.start_col));
+				bool after_anchor = (term_row > word_anchor.row ||
+				    (term_row == word_anchor.row && term_col > word_anchor.end_col));
+				if (before_anchor) {
+					selection.start_row = term_row;
+					selection.start_col = wstart;
+					selection.end_row = word_anchor.row;
+					selection.end_col = word_anchor.end_col;
+				} else if (after_anchor) {
+					selection.start_row = word_anchor.row;
+					selection.start_col = word_anchor.start_col;
+					selection.end_row = term_row;
+					selection.end_col = wend;
+				} else {
+					selection.start_row = word_anchor.row;
+					selection.start_col = word_anchor.start_col;
+					selection.end_row = word_anchor.row;
+					selection.end_col = word_anchor.end_col;
+				}
+				selection.tframe = tf;
+			} else {
+				selection.end_row = term_row;
+				selection.end_col = term_col;
+			}
 			curkeys_index = 0;
 			memset(curkeys, 0, sizeof(curkeys));
+			curkeymouse(m);
 			tickit_window_expose(tf->termwin, NULL);
+			tickit_window_expose(sbar.win, NULL);
 			return true;
 		} else if (m->type == TICKIT_MOUSEEV_RELEASE && selection.state == SEL_ACTIVE) {
 			char *text = selection_extract_text();
@@ -968,6 +1042,7 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 				free(text);
 			}
 			selection_clear();
+			word_select_mode = false;
 			curkeys_index = 0;
 			memset(curkeys, 0, sizeof(curkeys));
 			mwin.type = NONE;
@@ -975,10 +1050,12 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 		} else if (m->type == TICKIT_MOUSEEV_RELEASE && sel_pending.tframe) {
 			/* Click with no drag: clear pending and fall through to binding system */
 			sel_pending.tframe = NULL;
+			word_select_mode = false;
 		}
 	} else if (selection.state != SEL_NONE || sel_pending.tframe != NULL) {
 		/* Any other event clears selection and pending */
 		sel_pending.tframe = NULL;
+		word_select_mode = false;
 		selection_clear();
 	}
 
