@@ -846,16 +846,10 @@ static void selection_to_clipboard(const char *text) {
 	free(encoded);
 }
 
-static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, void *data) {
-	TickitMouseEventInfo *m = _info;
-	MWin *mw;
-	DEBUG_LOGF("Umt", "mouse_rootwin type %d, button %d, mod %d, line %d, col %d", m->type, m->button, m->mod, m->line, m->col);
-
-	if ((mw = get_mwin_by_coord(m->line, m->col))) {
-		memcpy(&mwin, mw, sizeof(MWin));
-		//DEBUG_LOGF("Umt", "mwin.type = %d, mwin.tframe = %p", mwin.type, mwin.tframe);
-	}
-
+/* Handles pane-aware text selection and altscreen forwarding for button-1
+ * events. Returns true if the event was fully consumed, false if it should
+ * fall through to curkeymouse and the binding system. */
+static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 	/* For altscreen terminals, forward events to the PTY. PRESS and RELEASE
 	 * also fall through to curkeymouse so click-1 bindings work normally.
 	 * Ctrl+button-1 and in-progress selections bypass this to allow pane-aware
@@ -872,7 +866,7 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 				altscreen_passthrough = true;
 			} else {
 				mwin.type = NONE;
-				return 1;
+				return true;
 			}
 		}
 	}
@@ -922,7 +916,7 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 			curkeys_index = 0;
 			memset(curkeys, 0, sizeof(curkeys));
 			tickit_window_expose(tf->termwin, NULL);
-			return 1;
+			return true;
 		} else if (m->type == TICKIT_MOUSEEV_RELEASE && selection.state == SEL_ACTIVE) {
 			char *text = selection_extract_text();
 			if (text) {
@@ -933,7 +927,7 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 			curkeys_index = 0;
 			memset(curkeys, 0, sizeof(curkeys));
 			mwin.type = NONE;
-			return 1;
+			return true;
 		} else if (m->type == TICKIT_MOUSEEV_RELEASE && sel_pending.tframe) {
 			/* Click with no drag: clear pending and fall through to binding system */
 			sel_pending.tframe = NULL;
@@ -943,6 +937,22 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 		sel_pending.tframe = NULL;
 		selection_clear();
 	}
+
+	return false;
+}
+
+static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, void *data) {
+	TickitMouseEventInfo *m = _info;
+	MWin *mw;
+	DEBUG_LOGF("Umt", "mouse_rootwin type %d, button %d, mod %d, line %d, col %d", m->type, m->button, m->mod, m->line, m->col);
+
+	if ((mw = get_mwin_by_coord(m->line, m->col))) {
+		memcpy(&mwin, mw, sizeof(MWin));
+		//DEBUG_LOGF("Umt", "mwin.type = %d, mwin.tframe = %p", mwin.type, mwin.tframe);
+	}
+
+	if (mouse_selection(m, mw))
+		return 1;
 
 	curkeymouse(m);
 	//for (unsigned int i = 0; i < curkeys_index; i++)
