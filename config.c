@@ -44,6 +44,7 @@ typedef struct {
 
 	float zoomsize;
 	unsigned int zoomnum;
+	int dbl_click_ms;
 	int scroll_history;
 	char *copymode_editor;
 
@@ -731,7 +732,11 @@ static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const
 	for (i = 0, tok = strtok_r(str, DELIMS, &save);
 			tok != NULL;
 			i++, tok = strtok_r(NULL, DELIMS, &save)) {
-		if ((click = strstr(tok, "click-"))) {
+		if (strstr(tok, "dbl-click-")) {
+			int offset = strstr(tok, "dbl-click-") - tok;
+			snprintf(b->keys[i], MAX_KEYNAME, "%.*sdbl-press%s", offset, tok, tok + offset + 9);
+			snprintf(b->keys[++i], MAX_KEYNAME, "%.*sdbl-release%s", offset, tok, tok + offset + 9);
+		} else if ((click = strstr(tok, "click-"))) {
 			int offset = click - tok;
 			snprintf(b->keys[i], MAX_KEYNAME, "%.*spress%s", offset, tok, tok + offset + 5);
 			snprintf(b->keys[++i], MAX_KEYNAME, "%.*srelease%s", offset, tok, tok + offset + 5);
@@ -912,6 +917,8 @@ static int a4_ini_handler(void *user, const char *section, const char *name, con
 		cfg->zoomsize = atof(value);
 	} else if (strcasecmp(name, "scroll_history") == 0) {
 		cfg->scroll_history = atoi(value);
+	} else if (strcasecmp(name, "dbl_click_ms") == 0) {
+		cfg->dbl_click_ms = atoi(value);
 	} else if (strcasecmp(name, "copymode_editor") == 0) {
 		prepare_str(&cfg->copymode_editor, value);
 
@@ -1084,6 +1091,7 @@ static void preset_configs(Config *cfg) {
 	cfg->zoomnum = 1;
 	cfg->zoomsize = .5;
 	cfg->scroll_history = 5000;
+	cfg->dbl_click_ms = 400;
 }
 
 static void postset_configs(Config *cfg) {
