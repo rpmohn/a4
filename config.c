@@ -819,7 +819,7 @@ static void expand_num_keybinding_action(Config *cfg, const char *kstr, const ch
 		error("KeyBinding \"%s\" must include a '#' character for function \"%s\" to replace in configuration file", kstr, astr);
 	for (int i = 1; i <= 9; i++) {
 		n[0] = i + 48; // Convert number to character
-		sprintf(actionstr, "%s %d", astr, i);
+		snprintf(actionstr, sizeof(actionstr), "%s %d", astr, i);
 		create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, kstr, actionstr);
 	}
 }
@@ -832,7 +832,7 @@ static void expand_tag_keybinding_action(Config *cfg, const char *kstr, const ch
 	int max = MIN(cfg->ntags, 9);
 	for (int i = 0; i < max && cfg->tagnames[i]; i++) {
 		n[0] = i + 1 + 48; // Convert number to character
-		sprintf(actionstr, "%s %s", astr, cfg->tagnames[i]);
+		snprintf(actionstr, sizeof(actionstr), "%s %s", astr, cfg->tagnames[i]);
 		create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, kstr, actionstr);
 	}
 }
@@ -985,9 +985,9 @@ static int a4_ini_handler(void *user, const char *section, const char *name, con
 static char *buildpath(char *dst, const char *src1, const char *src2, const char *src3) {
 	strncpy(dst, src1, PATH_MAX);
 	dst[PATH_MAX - 1] = '\0';
-	strncat(dst, src2, PATH_MAX - strlen(dst));
+	strncat(dst, src2, PATH_MAX - 1 - strlen(dst));
 	dst[PATH_MAX - 1] = '\0';
-	strncat(dst, src3, PATH_MAX - strlen(dst));
+	strncat(dst, src3, PATH_MAX - 1 - strlen(dst));
 	dst[PATH_MAX - 1] = '\0';
 	return dst;
 }

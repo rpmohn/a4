@@ -856,14 +856,15 @@ static void selection_to_clipboard(const char *text) {
 	if (!encoded)
 		return;
 
-	char *osc = malloc(strlen(encoded) + 16);
+	size_t osclen = strlen(encoded) + 16;
+	char *osc = malloc(osclen);
 	if (osc) {
 		/* Write to System Clipboard */
-		sprintf(osc, "\033]52;c;%s\033\\", encoded);
+		snprintf(osc, osclen, "\033]52;c;%s\033\\", encoded);
 		tickit_term_print(root.tt, osc);
 
 		/* Write to Primary Selection */
-		sprintf(osc, "\033]52;p;%s\033\\", encoded);
+		snprintf(osc, osclen, "\033]52;p;%s\033\\", encoded);
 		tickit_term_print(root.tt, osc);
 
 		free(osc);

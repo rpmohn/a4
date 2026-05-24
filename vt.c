@@ -269,6 +269,10 @@ static void applycolorrules(TFrame *tframe) {
 
 static void fetch_cell(TFrame *tframe, VTermPos pos, VTermScreenCell *cell) {
 	if (pos.row < 0) {
+		if (config.scroll_history == 0) {
+			memset(cell, 0, sizeof(*cell));
+			return;
+		}
 		int idx = (tframe->sb_head + (-pos.row - 1)) % config.scroll_history;
 		ScrollbackLine *sb_row = tframe->sb_buffer[idx];
 		if (pos.col < sb_row->cols) {
