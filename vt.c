@@ -76,8 +76,11 @@ static int vts_settermprop(VTermProp prop, VTermValue *val, void *user) {
 		if (val->string.initial)
 			tframe->title[0] = '\0';
 
-		int remaining = sizeof(tframe->title) - strlen(tframe->title) - 1;
-		strncat(tframe->title, val->string.str, MIN(val->string.len, remaining));
+		size_t cur_len = strlen(tframe->title);
+		size_t remaining = sizeof(tframe->title) - 1 - cur_len;
+		size_t n = val->string.len < remaining ? val->string.len : remaining;
+		memcpy(tframe->title + cur_len, val->string.str, n);
+		tframe->title[cur_len + n] = '\0';
 
 		if (val->string.final) {
 			applycolorrules(tframe);
@@ -125,6 +128,8 @@ static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user) {
 	}
 
 	if (!sb_row) {
+		if ((size_t)cols > (SIZE_MAX - sizeof(ScrollbackLine)) / sizeof(sb_row->cells[0]))
+			return 0;
 		sb_row = malloc(sizeof(ScrollbackLine) + cols * sizeof(sb_row->cells[0]));
 		if (!sb_row)
 			return 0;

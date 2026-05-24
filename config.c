@@ -505,7 +505,7 @@ static void update_colorscheme(Config *cfg, const char *section, const char *nam
 	// get second word of section as the colorscheme name
 	unsigned int i;
 	char *str, *tok, *save;
-	char *csname;
+	char *csname = NULL;
 	ColorScheme *cs;
 
 	if (!strcmp(name, "") || !strcmp(value, "")) {
@@ -525,6 +525,9 @@ static void update_colorscheme(Config *cfg, const char *section, const char *nam
 		}
 	}
 	free(str);
+
+	if (!csname)
+		error("Missing ColorScheme name in section \"%s\" in configuration file", section);
 
 	// FIXME: Deal with defaults. What if no color schemes are defined? What if only some colors are defined?
 	if ((cs = get_colorscheme(cfg, csname)) == NULL)
@@ -568,7 +571,7 @@ static void create_colorrule(Config *cfg, const char *name, const char *value) {
 		return;
 	}
 
-	ColorScheme *cs, *src;
+	ColorScheme *cs = NULL, *src;
 	unsigned int i;
 	char *str, *tok, *save;
 	save = NULL;
@@ -600,6 +603,9 @@ static void create_colorrule(Config *cfg, const char *name, const char *value) {
 		}
 	}
 	free(str);
+
+	if (!cs)
+		error("Invalid ColorRule specification \"%s = %s\" in configuration file", name, value);
 
 	cfg->colorrules = realloc(cfg->colorrules, ++cfg->ncolorrules * sizeof(ColorRule));
 	if (!cfg->colorrules)

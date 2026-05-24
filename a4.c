@@ -373,16 +373,19 @@ LAYOUTS(XLAYOUT)
 
 /* functions */
 static void curkeyscpy(const char *str) {
-	strncpy(curkeys[curkeys_index], str, MAX_KEYNAME);
+	strncpy(curkeys[curkeys_index], str, MAX_KEYNAME - 1);
+	curkeys[curkeys_index][MAX_KEYNAME - 1] = '\0';
 
 	int len = strlen(str);
-	switch(str[len - 1]) {
-		case ' ':
-			strncpy(curkeys[curkeys_index] + len - 1, "Space", MAX_KEYNAME - len);
-			break;
-		case '-':
-			strncpy(curkeys[curkeys_index] + len - 1, "Hyphen", MAX_KEYNAME - len);
-			break;
+	if (len > 0 && len < MAX_KEYNAME) {
+		switch(str[len - 1]) {
+			case ' ':
+				strncpy(curkeys[curkeys_index] + len - 1, "Space", MAX_KEYNAME - len);
+				break;
+			case '-':
+				strncpy(curkeys[curkeys_index] + len - 1, "Hyphen", MAX_KEYNAME - len);
+				break;
+		}
 	}
 
 	curkeys_index++;
