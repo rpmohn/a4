@@ -385,8 +385,9 @@ static void prepare_str(char **dst, const char *src) {
 	if (*dst)
 		free(*dst);
 	*dst = strdup(src + (src[0] == '"' ? 1 : 0));
-	if ((*dst)[strlen(*dst) - 1] == '"')
-		(*dst)[strlen(*dst) - 1] = '\0';
+	size_t len = strlen(*dst);
+	if (len > 0 && (*dst)[len - 1] == '"')
+		(*dst)[len - 1] = '\0';
 }
 
 static void destroy_layouts(Config *cfg) {
@@ -407,6 +408,8 @@ static void create_layout(Config *cfg, const char *name, const char *value) {
 		error("Invalid layout function %s in configuration file", name);
 
 	cfg->layouts = realloc(cfg->layouts, ++cfg->nlayouts * sizeof(Layout));
+	if (!cfg->layouts)
+		error("Out of memory");
 	cfg->layouts[cfg->nlayouts - 1].name = strdup(name);
 	cfg->layouts[cfg->nlayouts - 1].symbol = NULL;
 	prepare_str(&cfg->layouts[cfg->nlayouts - 1].symbol, value);
@@ -457,6 +460,8 @@ static void destroy_colorschemes(Config *cfg) {
 
 static ColorScheme *create_colorscheme(Config *cfg, const char *name) {
 	cfg->colorschemes = realloc(cfg->colorschemes, ++cfg->ncolorschemes * sizeof(ColorScheme));
+	if (!cfg->colorschemes)
+		error("Out of memory");
 	cfg->colorschemes[cfg->ncolorschemes - 1].name = strdup(name);
 
 	/* FIXME: set default fg/bg
@@ -537,7 +542,9 @@ static void update_colorscheme(Config *cfg, const char *section, const char *nam
 	} else if (strcasecmp(name, "cursor") == 0) {
 		/* Waiting for function tickit_window_set_cursor_color() */
 	} else {
-		i = atoi(&name[5]); // FIXME: Needs error checking!
+		i = atoi(&name[5]);
+		if (i < 0 || i >= MAX_COLORINDEX)
+			error("Invalid color index %d in configuration file", i);
 		build_vtermcolor(value, &cs->palette[i]);
 	}
 }
@@ -595,6 +602,8 @@ static void create_colorrule(Config *cfg, const char *name, const char *value) {
 	free(str);
 
 	cfg->colorrules = realloc(cfg->colorrules, ++cfg->ncolorrules * sizeof(ColorRule));
+	if (!cfg->colorrules)
+		error("Out of memory");
 	cfg->colorrules[cfg->ncolorrules - 1].title = strdup(name);
 	cfg->colorrules[cfg->ncolorrules - 1].cs = cs;
 }
@@ -619,6 +628,8 @@ static void create_sbar_cmd(Config *cfg, const char *value) {
 		return;
 	}
 	cfg->sbar_cmds = realloc(cfg->sbar_cmds, (++cfg->nsbar_cmds) * sizeof(char*));
+	if (!cfg->sbar_cmds)
+		error("Out of memory");
 	cfg->sbar_cmds[cfg->nsbar_cmds - 1] = NULL;
 	prepare_str(&cfg->sbar_cmds[cfg->nsbar_cmds - 1], value);
 }
@@ -723,6 +734,8 @@ static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const
 	KeyBinding *b = NULL;
 
 	*bindings = realloc(*bindings, ++(*nbindings) * sizeof(KeyBinding));
+	if (!*bindings)
+		error("Out of memory");
 	b = *bindings + *nbindings - 1;
 	memset(b, 0, sizeof(KeyBinding));
 
@@ -732,11 +745,17 @@ static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const
 	for (i = 0, tok = strtok_r(str, DELIMS, &save);
 			tok != NULL;
 			i++, tok = strtok_r(NULL, DELIMS, &save)) {
+		if (i >= MAX_KEYS)
+			error("Too many keys in binding \"%s\" in configuration file", name);
 		if (strstr(tok, "dbl-click-")) {
+			if (i + 1 >= MAX_KEYS)
+				error("Too many keys in binding \"%s\" in configuration file", name);
 			int offset = strstr(tok, "dbl-click-") - tok;
 			snprintf(b->keys[i], MAX_KEYNAME, "%.*sdbl-press%s", offset, tok, tok + offset + 9);
 			snprintf(b->keys[++i], MAX_KEYNAME, "%.*sdbl-release%s", offset, tok, tok + offset + 9);
 		} else if ((click = strstr(tok, "click-"))) {
+			if (i + 1 >= MAX_KEYS)
+				error("Too many keys in binding \"%s\" in configuration file", name);
 			int offset = click - tok;
 			snprintf(b->keys[i], MAX_KEYNAME, "%.*spress%s", offset, tok, tok + offset + 5);
 			snprintf(b->keys[++i], MAX_KEYNAME, "%.*srelease%s", offset, tok, tok + offset + 5);
