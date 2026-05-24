@@ -1366,6 +1366,8 @@ static void draw_frameline(TickitRenderBuffer *rb, FrameLine *l) {
 
 static void add_frameline(TickitRect *line, wchar_t c) {
 	FrameLine *newline = malloc(sizeof(FrameLine));
+	if (!newline)
+		return;
 	newline->line = *line;
 	newline->c = c;
 	newline->next = NULL;
