@@ -1997,10 +1997,16 @@ static void minimize(char *args[]) {
 }
 
 static void movewin(char *args[]) {
-	if (!sel || !args || !args[0])
+	if (!sel)
 		return;
 
-	int target = atoi(args[0]);
+	int target;
+	if (args && args[0])
+		target = atoi(args[0]);
+	else if ((mwin.type == TERM || mwin.type == TBAR) && mwin.tframe)
+		target = mwin.tframe->order;
+	else
+		return;
 	bool was_minimized = sel->minimized;
 
 	/* clear minimized flag before counting so sel is included */
