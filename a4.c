@@ -1093,6 +1093,8 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 				deferred_watch = NULL;
 				deferred_binding = NULL;
 			}
+			curkeys_index = 0;
+			memset(curkeys, 0, sizeof(curkeys));
 			last_press.time = (struct timespec){0, 0};
 		} else {
 			double_click_pending = false;
@@ -1123,11 +1125,15 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 				deferred_mwin = mwin;
 				deferred_watch = tickit_watch_timer_after_msec(root.tickit,
 						config.dbl_click_ms, 0, deferred_click_timer, NULL);
+				/* Show release key while waiting for possible double-click */
+				curkeys_index = 0;
+				memset(curkeys, 0, sizeof(curkeys));
+				strncpy(curkeys[curkeys_index++], binding->keys[key_length - 1], MAX_KEYNAME - 1);
 			} else {
 				binding->action.cmd(binding->action.args);
+				curkeys_index = 0;
+				memset(curkeys, 0, sizeof(curkeys));
 			}
-			curkeys_index = 0;
-			memset(curkeys, 0, sizeof(curkeys));
 			mwin.type = NONE;
 		}
 	} else {
