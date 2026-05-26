@@ -317,6 +317,7 @@ static void focusnextvis(void);
 static void vscroll_delta(TFrame *tframe, int delta);
 static unsigned int bitoftag(const char *tag);
 static void tagschanged(void);
+static void viewnext(bool backwards);
 static void viewswap(void);
 static void viewset(char *tagname);
 
@@ -1876,6 +1877,28 @@ static void tagtoggle(char *args[]) {
 	}
 }
 
+static void viewnext(bool backwards) {
+	if (tagset[seltags] == TAGMASK || tagset[seltags] == 0)
+		return;
+	unsigned int newtagset;
+	if (backwards)
+		newtagset = ((tagset[seltags] >> 1) | (tagset[seltags] << (config.ntags - 1))) & TAGMASK;
+	else
+		newtagset = ((tagset[seltags] << 1) | (tagset[seltags] >> (config.ntags - 1))) & TAGMASK;
+	if (newtagset && tagset[seltags] != newtagset) {
+		seltags ^= 1;
+		pertag.prevtag = pertag.curtag;
+		if (!(newtagset & (1 << (pertag.curtag - 1)))) {
+			unsigned int i;
+			for (i = 0; i < config.ntags && !(newtagset & (1 << i)); i++) ;
+			pertag.curtag = i + 1;
+		}
+		set_pertag();
+		tagset[seltags] = newtagset;
+		tagschanged();
+	}
+}
+
 static void viewswap(void) {
 	seltags ^= 1;
 	unsigned int tmptag = pertag.prevtag;
@@ -1908,6 +1931,10 @@ static void view(char *args[]) {
 		return;
 	else if (ARGS0EQ("_all"))              /* special arg "_all" */
 		viewset(NULL);
+	else if (ARGS0EQ("_next"))             /* special arg "_next" */
+		viewnext(false);
+	else if (ARGS0EQ("_prev"))             /* special arg "_prev" */
+		viewnext(true);
 	else if (ARGS0EQ("_swap"))             /* special arg "_swap" */
 		viewswap();
 	else
