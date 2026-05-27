@@ -318,6 +318,7 @@ static void vscroll_delta(TFrame *tframe, int delta);
 static unsigned int bitoftag(const char *tag);
 static void tagschanged(void);
 static void viewnext(bool backwards);
+static void viewfree(void);
 static void viewswap(void);
 static void viewset(char *tagname);
 
@@ -1899,6 +1900,28 @@ static void viewnext(bool backwards) {
 	}
 }
 
+static void viewfree(void) {
+	unsigned int occupied = 0;
+	for (TFrame *t = tframes; t; t = t->next)
+		occupied |= t->tags;
+	for (unsigned int n = 0; n < config.ntags; n++) {
+		unsigned int i = (pertag.curtag + n) % config.ntags;
+		unsigned int bit = 1 << i;
+		if (!(occupied & bit)) {
+			unsigned int newtagset = bit;
+			if (tagset[seltags] != newtagset) {
+				seltags ^= 1;
+				pertag.prevtag = pertag.curtag;
+				pertag.curtag = i + 1;
+				set_pertag();
+				tagset[seltags] = newtagset;
+				tagschanged();
+			}
+			return;
+		}
+	}
+}
+
 static void viewswap(void) {
 	seltags ^= 1;
 	unsigned int tmptag = pertag.prevtag;
@@ -1935,6 +1958,8 @@ static void view(char *args[]) {
 		viewnext(false);
 	else if (ARGS0EQ("_prev"))             /* special arg "_prev" */
 		viewnext(true);
+	else if (ARGS0EQ("_free"))             /* special arg "_free" */
+		viewfree();
 	else if (ARGS0EQ("_swap"))             /* special arg "_swap" */
 		viewswap();
 	else
