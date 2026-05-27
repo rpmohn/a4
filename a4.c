@@ -79,9 +79,11 @@ typedef struct {
 	char *args[MAX_ARGS];
 } Action;
 
+#define MAX_CHAIN 4
 typedef struct {
 	KeyCombo keys;
-	Action action;
+	Action actions[MAX_CHAIN];
+	unsigned int nactions;
 } KeyBinding;
 
 /* globals */
@@ -673,7 +675,8 @@ static int key_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, v
 		while (key_length > 1 && strlen(binding->keys[key_length-1]) == 0)
 			key_length--;
 		if (curkeys_index == key_length) {
-			binding->action.cmd(binding->action.args);
+			for (int i = 0; i < (int)binding->nactions; i++)
+				binding->actions[i].cmd(binding->actions[i].args);
 			curkeys_index = 0;
 			memset(curkeys, 0, sizeof(curkeys));
 		}
@@ -914,7 +917,8 @@ static int deferred_click_timer(Tickit *t, TickitEventFlags flags, void *info, v
 	deferred_watch = NULL;
 	if (deferred_binding) {
 		mwin = deferred_mwin;
-		deferred_binding->action.cmd(deferred_binding->action.args);
+		for (int i = 0; i < (int)deferred_binding->nactions; i++)
+			deferred_binding->actions[i].cmd(deferred_binding->actions[i].args);
 		deferred_binding = NULL;
 		curkeys_index = 0;
 		memset(curkeys, 0, sizeof(curkeys));
@@ -1132,7 +1136,8 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 				memset(curkeys, 0, sizeof(curkeys));
 				strncpy(curkeys[curkeys_index++], binding->keys[key_length - 1], MAX_KEYNAME - 1);
 			} else {
-				binding->action.cmd(binding->action.args);
+				for (int i = 0; i < (int)binding->nactions; i++)
+					binding->actions[i].cmd(binding->actions[i].args);
 				curkeys_index = 0;
 				memset(curkeys, 0, sizeof(curkeys));
 			}
@@ -2743,7 +2748,8 @@ static void startup_a4(void) {
 
 	if (startups)
 		for (unsigned int i = 0; i < config.nstartups; i++)
-			config.startups[i].action.cmd(config.startups[i].action.args);
+			for (int j = 0; j < (int)config.startups[i].nactions; j++)
+				config.startups[i].actions[j].cmd(config.startups[i].actions[j].args);
 }
 
 static void shutdown_a4(void) {

@@ -713,18 +713,13 @@ static char *interpret_backslashes(const char *value) {
 }
 
 static void clear_bindings(unsigned int *nbindings, KeyBinding **bindings) {
-	int i;
 	KeyBinding *b = NULL;
 	for (; *nbindings > 0; (*nbindings)--) {
-		/* keys are copied in and must not be freed             */
-		/* args[0] is a pointer to the function                 */
-		/* any additional args were strdup'ed and must be freed */
-		for (i = 0; i < MAX_ARGS; i++) {
-			b = *bindings + *nbindings - 1;
-			if (b->action.args[i]) {
-				free(b->action.args[i]);
-			}
-		}
+		b = *bindings + *nbindings - 1;
+		for (int i = 0; i < (int)b->nactions; i++)
+			for (int j = 0; j < MAX_ARGS; j++)
+				if (b->actions[i].args[j])
+					free(b->actions[i].args[j]);
 	}
 }
 
@@ -772,37 +767,49 @@ static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const
 
 	// If value is blank, map to noaction()
 	if (!strcmp(value, "")) {
-		b->action.cmd = &noaction;
+		b->actions[0].cmd = &noaction;
+		b->nactions = 1;
 		return;
 	}
 
-	// parse the value and copy to action.cmd, action.args
+	// Split on ';' to allow chaining multiple actions
+	char *asave;
 	save = NULL;
 	str = strdup(value);
-	for (i = 0, tok = strtok_r(str, DELIMS, &save);
-			tok != NULL;
-			i++, tok = strtok_r(NULL, DELIMS, &save)) {
-		if (i == 0) {
-			// look up the action and assign to action.cmd
-			for (j = 0; j < LENGTH(action_choices); j++) {
-				if (!strcmp(tok, action_choices[j].name)) {
-					b->action.cmd = action_choices[j].func;
+	for (char *seg = strtok_r(str, ";", &save);
+			seg != NULL;
+			seg = strtok_r(NULL, ";", &save)) {
+		if (b->nactions >= MAX_CHAIN)
+			error("Too many chained actions in binding \"%s\" in configuration file", name);
+		Action *act = &b->actions[b->nactions];
+		while (*seg == ' ' || *seg == '\t') seg++;
+		asave = NULL;
+		char *astr = strdup(seg);
+		for (i = 0, tok = strtok_r(astr, DELIMS, &asave);
+				tok != NULL;
+				i++, tok = strtok_r(NULL, DELIMS, &asave)) {
+			if (i == 0) {
+				for (j = 0; j < LENGTH(action_choices); j++) {
+					if (!strcmp(tok, action_choices[j].name)) {
+						act->cmd = action_choices[j].func;
+						break;
+					}
+				}
+				if (j < LENGTH(action_choices) && !strcmp(action_choices[j].name, "keysequence")) {
+					act->args[0] = interpret_backslashes(seg + 11);
 					break;
 				}
+			} else {
+				if (i - 1 < MAX_ARGS)
+					act->args[i - 1] = strdup(tok);
 			}
-			if(j < LENGTH(action_choices) && !strcmp(action_choices[j].name, "keysequence")) {
-				b->action.args[0] = interpret_backslashes(value+11);
-				break;
-			}
-		} else {
-			// assign arguments to action.cmd
-			b->action.args[i - 1] = strdup(tok);
 		}
+		free(astr);
+		if (!act->cmd)
+			error("Invalid KeyBinding Action function \"%s\" in configuration file", seg);
+		b->nactions++;
 	}
 	free(str);
-
-	if (!b->action.cmd)
-		error("Invalid KeyBinding Action function \"%s\" in configuration file", value);
 }
 
 static void create_startup(unsigned int *nbindings, KeyBinding **bindings, const char *name, const char *value) {

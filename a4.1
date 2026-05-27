@@ -358,6 +358,11 @@ followed by a line with just a single
 character clears out all previously defined ColorRules.
 Any Key/Mouse Combination assigned in any of the Action sections may be cancelled by assigning it to blank, e.g.
 .BR "C-g c =" . Later Key/Mouse Combination assignments override earlier ones.
+Up to four actions may be chained together in a single binding by separating them with
+.BR ; ,
+for example
+.BR "C-g n = view _free; create" .
+Each action in a chain executes in order when the binding is triggered.
 .SS ColorSchemes
 Having different terminal color schemes dynamically applied helps to identify and keep track of all the different terminals with which you're working. The first step is to have different color schemes defined for use by the ColorRules later.
 Terminals typically have a default foreground (fg) color, background (bg)
@@ -603,7 +608,7 @@ section,
 .B tagtoggle
 may be used without a parameter to toggle the clicked tag on the selected window.
 .TP
-.BR view " [<" "tag name" >| _all | _next | _prev | _swap ]
+.BR view " [<" "tag name" >| _all | _next | _prev | _free | _swap ]
 View all terminal windows with the
 .B tag name
 tag enabled.
@@ -616,6 +621,12 @@ views all windows of the next tag to the right/left.
 Special parameter
 .B _swap
 views the windows of whichever set of tags were previously selected.
+Special parameter
+.B _free
+views the next tag (wrapping forward) that has no terminal windows assigned to it.
+If all tags are occupied,
+.B _free
+does nothing.
 If mapped in the
 .B MouseTagNamesActions
 section,
