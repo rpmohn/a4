@@ -526,6 +526,29 @@ sets the layout to whatever was previously set.
 .B minimize
 Minimize/unminimize the selected or mouse-selected terminal window.
 .TP
+.BR modlock " [<" "key" >]
+Lock in a modifier prefix so that subsequent keypresses are interpreted as if
+that prefix key was pressed first.
+For example, with the binding
+.B "M-C-a = modlock C-a"
+and the binding
+.B "C-a I = zoomnum +1"
+the user can press
+.B M-C-a
+to enter modlock, then press
+.B I
+repeatedly to increase the zoom area size without holding
+.B Ctrl-a
+each time.
+Press
+.B Escape
+to exit modlock.
+Calling
+.B modlock
+without a parameter also exits modlock.
+While modlock is active the locked prefix is shown in the key display area of
+the status bar.
+.TP
 .BR movewin " [1\-9 | #]"
 Move the focused terminal window to position
 .B n

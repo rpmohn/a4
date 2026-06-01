@@ -250,6 +250,7 @@ static bool session_attach = false;
 
 static KeyCombo curkeys;
 static unsigned int curkeys_index = 0;
+static char modlock_prefix[MAX_KEYNAME];
 
 /* function declarations */
 static void keypress(TickitKeyEventInfo *key, const char *seq);
@@ -342,6 +343,7 @@ static void parse_args(int argc, char *argv[]);
 	X(keysequence)        \
 	X(layout)             \
 	X(minimize)           \
+	X(modlock)            \
 	X(movewin)            \
 	X(paste)              \
 	X(noaction)           \
@@ -666,6 +668,22 @@ static int key_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, v
 	TickitKeyEventInfo *key = _info;
 	//DEBUG_LOGF("Ukt", "key_rootwin type %d, mod %d, str \"%s\"", key->type, key->mod, key->str);
 
+	/* modlock: intercept ESC before normal processing */
+	if (modlock_prefix[0] && strcmp(key->str, "Escape") == 0) {
+		memset(curkeys, 0, sizeof(curkeys));
+		if (curkeys_index <= 1) {
+			/* exit modlock */
+			modlock_prefix[0] = '\0';
+			curkeys_index = 0;
+		} else {
+			/* cancel in-progress chord, return to prefix-only */
+			strncpy(curkeys[0], modlock_prefix, MAX_KEYNAME - 1);
+			curkeys_index = 1;
+		}
+		tickit_window_expose(sbar.win, NULL);
+		return 1;
+	}
+
 	curkeyscpy(key->str);
 	tickit_window_expose(sbar.win, NULL);
 
@@ -679,11 +697,21 @@ static int key_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, v
 				binding->actions[i].cmd(binding->actions[i].args);
 			curkeys_index = 0;
 			memset(curkeys, 0, sizeof(curkeys));
+			if (modlock_prefix[0]) {
+				strncpy(curkeys[0], modlock_prefix, MAX_KEYNAME - 1);
+				curkeys_index = 1;
+			}
 		}
 	} else {
 		curkeys_index = 0;
 		memset(curkeys, 0, sizeof(curkeys));
-		keypress(key, NULL);
+		if (!modlock_prefix[0]) {
+			keypress(key, NULL);
+		} else {
+			/* silently consume; restore prefix display */
+			strncpy(curkeys[0], modlock_prefix, MAX_KEYNAME - 1);
+			curkeys_index = 1;
+		}
 	}
 
 	return 1;
@@ -1078,6 +1106,9 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 	MWin *mw;
 	DEBUG_LOGF("Umt", "mouse_rootwin type %d, button %d, mod %d, line %d, col %d", m->type, m->button, m->mod, m->line, m->col);
 
+	if (modlock_prefix[0])
+		return 1;
+
 	if ((mw = get_mwin_by_coord(m->line, m->col))) {
 		memcpy(&mwin, mw, sizeof(MWin));
 		//DEBUG_LOGF("Umt", "mwin.type = %d, mwin.tframe = %p", mwin.type, mwin.tframe);
@@ -1251,10 +1282,16 @@ static int render_sbarwin(TickitWindow *win, TickitEventFlags flags, void *_info
 	tickit_renderbuffer_setpen(rb, config.tag_unoccupied_pen);
 
 	for (unsigned int i = 0; i < curkeys_index; i++) {
-		if (strncmp(curkeys[i], "C-", 2) == 0 && strlen(curkeys[i]) == 3)
-			tickit_renderbuffer_textf(rb, "^%c", curkeys[i][2] - 32); // uppercase the control char
+		bool is_ctrl = strncmp(curkeys[i], "C-", 2) == 0 && strlen(curkeys[i]) == 3;
+		bool is_modlock_prefix = modlock_prefix[0] && i == 0;
+		if (is_modlock_prefix)
+			tickit_renderbuffer_textf(rb, "[");
+		if (is_ctrl)
+			tickit_renderbuffer_textf(rb, "^%c", curkeys[i][2] - 32);
 		else
 			tickit_renderbuffer_textf(rb, "%s", curkeys[i]);
+		if (is_modlock_prefix)
+			tickit_renderbuffer_textf(rb, "]");
 	}
 
 	tickit_renderbuffer_textf(rb, "%c", config.statusbar_begin);
@@ -2051,6 +2088,15 @@ static void minimize(char *args[]) {
 	arrange();
 	if (savesel)
 		dofocus(savesel);
+}
+
+static void modlock(char *args[]) {
+	if (!args || !args[0])
+		modlock_prefix[0] = '\0';
+	else {
+		strncpy(modlock_prefix, args[0], MAX_KEYNAME - 1);
+		modlock_prefix[MAX_KEYNAME - 1] = '\0';
+	}
 }
 
 static void movewin(char *args[]) {
