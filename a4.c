@@ -17,6 +17,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <wchar.h>
+#include <wctype.h>
 
 #include <tickit.h>
 #include <vterm.h>
@@ -906,22 +907,27 @@ static void selection_to_clipboard(const char *text) {
 	free(encoded);
 }
 
-static bool is_word_char(TFrame *tf, int vrow, int col) {
-	if (col < 0 || col >= tf->termrect.cols) return false;
+static int char_class(TFrame *tf, int vrow, int col) {
+	if (col < 0 || col >= tf->termrect.cols) return 0;
 	VTermPos vpos = { .row = vrow, .col = col };
 	VTermScreenCell cell;
 	fetch_cell(tf, vpos, &cell);
-	return cell.chars[0] != 0 && cell.chars[0] != ' ';
+	uint32_t ch = cell.chars[0];
+	if (ch == 0 || ch == ' ') return 0;
+	if (iswalnum((wint_t)ch) || ch == '_') return 1;
+	if (config.word_chars && strchr(config.word_chars, (int)ch)) return 1;
+	return 2;
 }
 
 static void find_word_boundary(TFrame *tf, int row, int col, int *word_start, int *word_end) {
 	int vrow = row - tf->sb_offset;
 	int maxcol = tf->termrect.cols - 1;
+	int cls = char_class(tf, vrow, col);
 	int start = col;
-	while (start > 0 && is_word_char(tf, vrow, start - 1))
+	while (start > 0 && char_class(tf, vrow, start - 1) == cls)
 		start--;
 	int end = col;
-	while (end < maxcol && is_word_char(tf, vrow, end + 1))
+	while (end < maxcol && char_class(tf, vrow, end + 1) == cls)
 		end++;
 	*word_start = start;
 	*word_end = end;

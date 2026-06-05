@@ -47,6 +47,7 @@ typedef struct {
 	int dbl_click_ms;
 	int scroll_history;
 	char *copymode_editor;
+	char *word_chars;
 
 	unsigned int nstartups;
 	KeyBinding *startups;
@@ -953,6 +954,8 @@ static int a4_ini_handler(void *user, const char *section, const char *name, con
 		cfg->dbl_click_ms = atoi(value);
 	} else if (strcasecmp(name, "copymode_editor") == 0) {
 		prepare_str(&cfg->copymode_editor, value);
+	} else if (strcasecmp(name, "word_chars") == 0) {
+		prepare_str(&cfg->word_chars, value);
 
 	} else if (strcasecmp(name, "startup") == 0) {
 		create_startup(&cfg->nstartups, &cfg->startups, name, value);
@@ -1083,6 +1086,7 @@ static void destroy_config(Config *cfg) {
 	tickit_pen_unref(cfg->tag_urgent_pen);
 
 	free(cfg->copymode_editor);
+	free(cfg->word_chars);
 
 	destroy_bindings(&cfg->nstartups, &cfg->startups);
 	destroy_bindings(&cfg->nkb_bindings, &cfg->kb_bindings);
