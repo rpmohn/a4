@@ -1,0 +1,99 @@
+.TH A4\-KEYCODES 1 a4\-VERSION
+.SH NAME
+a4\-keycodes \- display key and mouse event codes for use in a4 configuration
+.SH SYNOPSIS
+.B a4\-keycodes
+.SH DESCRIPTION
+.B a4\-keycodes
+is an interactive utility that displays the key and mouse event codes
+recognized by
+.BR a4 .
+It should be run in the underlying terminal and not from within
+.B a4
+itself. Press any key or use the mouse to see the corresponding code printed to
+the screen. These codes are the exact strings used on the left-hand side of key
+and mouse bindings in the
+.B a4.ini
+configuration file.
+.P
+To exit press
+.BR Ctrl\-c .
+.SH OUTPUT FORMAT
+Each event is displayed on its own line as
+.BR "KEYCODE: " <code>
+where
+.I code
+is the string to use in
+.BR a4.ini .
+.P
+Keyboard codes use the following conventions:
+.TP
+.B C\-x
+The Control modifier combined with key
+.BR x ,
+displayed as
+.B ^X
+in the
+.B a4
+status bar.
+.TP
+.B M\-x
+The Alt (Meta) modifier combined with key
+.BR x .
+.TP
+.B S\-x
+The Shift modifier combined with key
+.BR x .
+.TP
+.B Space
+The space bar.
+.TP
+.B Hyphen
+The hyphen/minus key.
+.P
+Mouse codes use the following conventions:
+.TP
+.BR press\- n
+Button
+.I n
+pressed.
+.TP
+.BR release\- n
+Button
+.I n
+released.
+.TP
+.BR drag\- n
+Button
+.I n
+held while moving the mouse.
+.TP
+.B wheel\-up
+Mouse wheel scrolled up.
+.TP
+.B wheel\-dn
+Mouse wheel scrolled down.
+.P
+Modifier prefixes
+.BR M\- ,
+.BR C\- ,
+and
+.B S\-
+may appear before mouse codes as well, e.g.\&
+.BR C\-press\-1 .
+.SH EXAMPLES
+To find the code for Ctrl\-PageDown, run
+.B a4\-keycodes
+and press
+.BR Ctrl\-PageDown .
+The output might be:
+.P
+.B "    KEYCODE: C\-PageDown"
+.P
+This can then be used directly in
+.B a4.ini
+as:
+.P
+.B "    C\-PageDown = view _next"
+.SH SEE ALSO
+.BR a4 (1)

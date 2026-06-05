@@ -74,6 +74,7 @@ release: portable portable-musl
 		cp -p extras/a4-keycodes-$$arch a4-$(VERSION)-$$arch/a4-keycodes; \
 		cp -p etc/*.ini a4-$(VERSION)-$$arch/; \
 		sed "s/VERSION/$(VERSION)/g" < a4.1 > a4-$(VERSION)-$$arch/a4.1; \
+		sed "s/VERSION/$(VERSION)/g" < extras/a4-keycodes.1 > a4-$(VERSION)-$$arch/a4-keycodes.1; \
 		tar -czvf release/a4-$(VERSION)-$$arch.tar.gz a4-$(VERSION)-$$arch; \
 		rm -rf a4-$(VERSION)-$$arch; \
 	done
@@ -164,6 +165,8 @@ install: all
 	mkdir -p $(DESTDIR)$(MANPREFIX)/man1
 	sed "s/VERSION/$(VERSION)/g" < a4.1 > $(DESTDIR)$(MANPREFIX)/man1/a4.1
 	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/a4.1
+	sed "s/VERSION/$(VERSION)/g" < extras/a4-keycodes.1 > $(DESTDIR)$(MANPREFIX)/man1/a4-keycodes.1
+	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/a4-keycodes.1
 	mkdir -p $(DESTDIR)$(DOCDIR)/a4
 	cp -f LICENSE $(DESTDIR)$(DOCDIR)/a4
 	chmod 644 $(DESTDIR)$(DOCDIR)/a4/LICENSE
@@ -172,5 +175,5 @@ uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/a4 \
 		$(DESTDIR)$(PREFIX)/bin/a4-keycodes \
 		$(DESTDIR)$(SYSCONFDIR)/a4/* \
-		$(DESTDIR)$(MANPREFIX)/man1/a4.1 \
+		$(DESTDIR)$(MANPREFIX)/man1/a4*.1 \
 		$(DESTDIR)$(DOCDIR)/a4/*
