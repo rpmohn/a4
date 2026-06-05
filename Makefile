@@ -75,7 +75,7 @@ release: portable portable-musl
 		cp -p etc/*.ini a4-$(VERSION)-$$arch/; \
 		sed "s/VERSION/$(VERSION)/g" < a4.1 > a4-$(VERSION)-$$arch/a4.1; \
 		sed "s/VERSION/$(VERSION)/g" < extras/a4-keycodes.1 > a4-$(VERSION)-$$arch/a4-keycodes.1; \
-		tar -czvf release/a4-$(VERSION)-$$arch.tar.gz a4-$(VERSION)-$$arch; \
+		tar -czvf release/a4-$(VERSION)-$$arch.tar.gz --owner=0 --group=0 a4-$(VERSION)-$$arch; \
 		rm -rf a4-$(VERSION)-$$arch; \
 	done
 	sed "s/VERSION/$(VERSION)/g" < extras/install.sh > release/install.sh
