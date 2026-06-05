@@ -204,6 +204,7 @@ static struct {
 static KeyBinding *deferred_binding = NULL;
 static MWin deferred_mwin;
 static void *deferred_watch = NULL;
+static void *word_select_watch = NULL;
 
 static bool altscreen_drag_active = false;
 static const char *pending_cwd = NULL;
@@ -959,6 +960,22 @@ static int deferred_click_timer(Tickit *t, TickitEventFlags flags, void *info, v
 /* Handles pane-aware text selection and altscreen forwarding for button-1
  * events. Returns true if the event was fully consumed, false if it should
  * fall through to curkeymouse and the binding system. */
+static int word_select_timer(Tickit *t, TickitEventFlags flags, void *info, void *data) {
+	word_select_watch = NULL;
+	if (!sel_pending.tframe || !word_select_mode)
+		return 0;
+	selection.tframe = sel_pending.tframe;
+	selection.start_row = word_anchor.row;
+	selection.start_col = word_anchor.start_col;
+	selection.end_row = word_anchor.row;
+	selection.end_col = word_anchor.end_col;
+	selection.state = SEL_ACTIVE;
+	sel_pending.tframe = NULL;
+	tickit_window_expose(selection.tframe->termwin, NULL);
+	tickit_window_expose(sbar.win, NULL);
+	return 0;
+}
+
 static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 	/* For altscreen terminals, forward events to the PTY. PRESS and RELEASE
 	 * also fall through to curkeymouse so click-1 bindings work normally.
@@ -1019,6 +1036,10 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 		if (term_col >= tf->termrect.cols) term_col = tf->termrect.cols - 1;
 
 		if (m->type == TICKIT_MOUSEEV_PRESS) {
+			if (word_select_watch) {
+				tickit_watch_cancel(root.tickit, word_select_watch);
+				word_select_watch = NULL;
+			}
 			selection_clear();
 			word_select_mode = false;
 			if (double_click_pending) {
@@ -1028,11 +1049,17 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 				word_anchor.start_col = wstart;
 				word_anchor.end_col = wend;
 				word_select_mode = true;
+				word_select_watch = tickit_watch_timer_after_msec(root.tickit,
+						config.dbl_click_ms, 0, word_select_timer, NULL);
 			}
 			sel_pending.tframe = tf;
 			sel_pending.start_row = term_row;
 			sel_pending.start_col = term_col;
 		} else if (m->type == TICKIT_MOUSEEV_DRAG && sel_in_progress) {
+			if (word_select_watch) {
+				tickit_watch_cancel(root.tickit, word_select_watch);
+				word_select_watch = NULL;
+			}
 			if (sel_pending.tframe) {
 				selection.tframe = sel_pending.tframe;
 				selection.start_row = sel_pending.start_row;
@@ -1075,6 +1102,10 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 			tickit_window_expose(sbar.win, NULL);
 			return true;
 		} else if (m->type == TICKIT_MOUSEEV_RELEASE && selection.state == SEL_ACTIVE) {
+			if (word_select_watch) {
+				tickit_watch_cancel(root.tickit, word_select_watch);
+				word_select_watch = NULL;
+			}
 			char *text = selection_extract_text();
 			if (text) {
 				selection_to_clipboard(text);
@@ -1088,6 +1119,10 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 			return true;
 		} else if (m->type == TICKIT_MOUSEEV_RELEASE && sel_pending.tframe) {
 			/* Click with no drag: clear pending and fall through to binding system */
+			if (word_select_watch) {
+				tickit_watch_cancel(root.tickit, word_select_watch);
+				word_select_watch = NULL;
+			}
 			sel_pending.tframe = NULL;
 			word_select_mode = false;
 		}
