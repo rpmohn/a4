@@ -281,7 +281,10 @@ Scroll backward/forward a full screen in the terminal window that the mouse is h
 .B Button1 drag
 Select text in a terminal window. The selected text is automatically copied to
 the system clipboard when the button is released. Double click and drag selects
-text by word boundary rather than by character.
+text by word boundary rather than by character. Additional characters may be
+included in the word boundary class via the
+.B word_chars
+INI setting.
 .SS Mouse in title bar
 .TP
 .B Button1 click
