@@ -253,6 +253,7 @@ static bool session_attach = false;
 static KeyCombo curkeys;
 static unsigned int curkeys_index = 0;
 static char modlock_prefix[MAX_KEYNAME];
+static TickitKeyEventInfo *current_key_event = NULL;
 
 /* function declarations */
 static void keypress(TickitKeyEventInfo *key, const char *seq);
@@ -347,6 +348,7 @@ static void parse_args(int argc, char *argv[]);
 	X(minimize)           \
 	X(modlock)            \
 	X(movewin)            \
+	X(passthrough)        \
 	X(paste)              \
 	X(noaction)           \
 	X(quit)               \
@@ -695,8 +697,10 @@ static int key_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info, v
 		while (key_length > 1 && strlen(binding->keys[key_length-1]) == 0)
 			key_length--;
 		if (curkeys_index == key_length) {
+			current_key_event = key;
 			for (int i = 0; i < (int)binding->nactions; i++)
 				binding->actions[i].cmd(binding->actions[i].args);
+			current_key_event = NULL;
 			curkeys_index = 0;
 			memset(curkeys, 0, sizeof(curkeys));
 			if (modlock_prefix[0]) {
@@ -2721,6 +2725,11 @@ static void copymode(char *args[]) {
 	/* Raise overlay window above sel */
 	tickit_window_raise(tframe->win);
 	tickit_window_expose(tframe->win, NULL);
+}
+
+static void passthrough(char *args[]) {
+	if (current_key_event)
+		keypress(current_key_event, NULL);
 }
 
 static void paste(char *args[]) {

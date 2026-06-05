@@ -574,6 +574,18 @@ expanded to nine separate mappings with the
 character on both sides of the assignment replaced by the numerals
 .BR 1\-9 .
 .TP
+.B noaction
+Do nothing and consume the key, preventing it from being passed to the focused
+terminal window. Assigning a key binding to blank has the same effect.
+.TP
+.B passthrough
+Pass the key through to the focused terminal window as if no binding existed.
+Useful for unbinding a default key so that it reaches the application running
+in the terminal instead of being handled by
+.BR a4 .
+For example:
+.B "C-PageUp = passthrough"
+.TP
 .B paste
 Paste the contents of the
 .B a4
