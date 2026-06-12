@@ -119,12 +119,11 @@ static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user) {
 	if (tframe->sb_current == capacity) {
 		/* Buffer full: evict the oldest line, which occupies the new_head slot */
 		ScrollbackLine *old = tframe->sb_buffer[new_head];
+		tframe->sb_buffer[new_head] = NULL; /* clear before free so failure path is safe */
 		if (old->cols == cols)
 			sb_row = old; /* recycle allocation */
 		else
 			free(old);
-	} else {
-		tframe->sb_current++;
 	}
 
 	if (!sb_row) {
@@ -134,6 +133,8 @@ static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user) {
 		if (!sb_row)
 			return 0;
 		sb_row->cols = cols;
+		if (tframe->sb_current < capacity)
+			tframe->sb_current++;
 	}
 
 	tframe->sb_head = new_head;
@@ -151,8 +152,11 @@ static int vts_sb_popline(int cols, VTermScreenCell *cells, void *user) {
 
 	/* Pop the most recent line and advance head toward older entries */
 	ScrollbackLine *sb_row = tframe->sb_buffer[tframe->sb_head];
+	tframe->sb_buffer[tframe->sb_head] = NULL;
 	tframe->sb_current--;
 	tframe->sb_head = (tframe->sb_head + 1) % config.scroll_history;
+	if (tframe->sb_offset > tframe->sb_current)
+		tframe->sb_offset = tframe->sb_current;
 
 	int cols_to_copy = MIN(cols, sb_row->cols);
 	memcpy(cells, sb_row->cells, sizeof(cells[0]) * cols_to_copy);
@@ -275,6 +279,10 @@ static void fetch_cell(TFrame *tframe, VTermPos pos, VTermScreenCell *cell) {
 		}
 		int idx = (tframe->sb_head + (-pos.row - 1)) % config.scroll_history;
 		ScrollbackLine *sb_row = tframe->sb_buffer[idx];
+		if (!sb_row) {
+			memset(cell, 0, sizeof(*cell));
+			return;
+		}
 		if (pos.col < sb_row->cols) {
 			*cell = sb_row->cells[pos.col];
 		} else {
