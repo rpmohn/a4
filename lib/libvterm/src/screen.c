@@ -536,7 +536,9 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
     /* TODO: Stop if dwl or dhl */
     while(REFLOW && old_lineinfo && old_row >= 0 && old_lineinfo[old_row].continuation)
       old_row--;
-    int old_row_start = old_row;
+    /* Clamp to 0: if the logical line starts in scrollback we can't access rows before the
+     * screen buffer, so treat the first visible row as the logical line start. */
+    int old_row_start = old_row < 0 ? 0 : old_row;
 
     int width = 0;
     for(int row = old_row_start; row <= old_row_end; row++) {
