@@ -115,6 +115,7 @@ struct FrameLine {
 
 typedef struct {
 	int cols;
+	unsigned int continuation:1;
 	VTermScreenCell cells[];
 } ScrollbackLine;
 
@@ -845,8 +846,23 @@ static char *selection_extract_text(void) {
 			}
 		}
 
-		if (row < er && pos < bufsize - 1)
-			buf[pos++] = '\n';
+		if (row < er) {
+			bool is_continuation = false;
+			if (vrow < 0) {
+				int depth = -vrow;
+				if (depth <= tf->sb_current) {
+					int idx = (tf->sb_head + depth - 1) % config.scroll_history;
+					if (tf->sb_buffer[idx])
+						is_continuation = tf->sb_buffer[idx]->continuation;
+				}
+			} else {
+				const VTermLineInfo *li = vterm_state_get_lineinfo(
+					vterm_obtain_state(tf->vt), vrow + 1);
+				is_continuation = li && li->continuation;
+			}
+			if (!is_continuation && pos < bufsize - 1)
+				buf[pos++] = '\n';
+		}
 	}
 
 	buf[pos] = '\0';

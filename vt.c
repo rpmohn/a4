@@ -139,6 +139,8 @@ static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user) {
 
 	tframe->sb_head = new_head;
 	tframe->sb_buffer[tframe->sb_head] = sb_row;
+	const VTermLineInfo *li = vterm_state_get_lineinfo(vterm_obtain_state(tframe->vt), 0);
+	sb_row->continuation = li ? li->continuation : 0;
 	memcpy(sb_row->cells, cells, cols * sizeof(cells[0]));
 
 	return 1;
