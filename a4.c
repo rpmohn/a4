@@ -203,9 +203,6 @@ static struct {
 	int button, line, col;
 	struct timespec time;
 } last_press;
-static KeyBinding *deferred_binding = NULL;
-static MWin deferred_mwin;
-static void *deferred_watch = NULL;
 
 static bool altscreen_drag_active = false;
 static const char *pending_cwd = NULL;
@@ -952,35 +949,6 @@ static void find_word_boundary(TFrame *tf, int row, int col, int *word_start, in
 	*word_end = end;
 }
 
-/* Returns true if a dbl-click-N binding exists that corresponds to the
- * press-N currently in curkeys[0], including any modifier prefix. */
-static bool has_dbl_click_counterpart(void) {
-	if (curkeys_index == 0) return false;
-	const char *press = strstr(curkeys[0], "press-");
-	if (!press) return false;
-	char dbl_key[MAX_KEYNAME];
-	int prefix_len = press - curkeys[0];
-	snprintf(dbl_key, MAX_KEYNAME, "%.*sdbl-press-%s", prefix_len, curkeys[0], press + 6);
-	KeyCombo test;
-	memset(test, 0, sizeof(test));
-	strncpy(test[0], dbl_key, MAX_KEYNAME);
-	return mousebinding(test, 1) != NULL;
-}
-
-static int deferred_click_timer(Tickit *t, TickitEventFlags flags, void *info, void *data) {
-	deferred_watch = NULL;
-	if (deferred_binding) {
-		mwin = deferred_mwin;
-		for (int i = 0; i < (int)deferred_binding->nactions; i++)
-			deferred_binding->actions[i].cmd(deferred_binding->actions[i].args);
-		deferred_binding = NULL;
-		curkeys_index = 0;
-		memset(curkeys, 0, sizeof(curkeys));
-		mwin.type = NONE;
-		tickit_window_expose(sbar.win, NULL);
-	}
-	return 0;
-}
 
 /* Handles pane-aware text selection and altscreen forwarding for button-1
  * events. Returns true if the event was fully consumed, false if it should
@@ -1174,11 +1142,6 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 		              elapsed_ms < config.dbl_click_ms;
 		if (is_dbl) {
 			double_click_pending = true;
-			if (deferred_watch) {
-				tickit_watch_cancel(root.tickit, deferred_watch);
-				deferred_watch = NULL;
-				deferred_binding = NULL;
-			}
 			curkeys_index = 0;
 			memset(curkeys, 0, sizeof(curkeys));
 			last_press.time = (struct timespec){0, 0};
@@ -1204,23 +1167,10 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 		while (key_length > 1 && strlen(binding->keys[key_length-1]) == 0)
 			key_length--;
 		if (curkeys_index == key_length) {
-			if (key_length == 2 && has_dbl_click_counterpart()) {
-				if (deferred_watch)
-					tickit_watch_cancel(root.tickit, deferred_watch);
-				deferred_binding = binding;
-				deferred_mwin = mwin;
-				deferred_watch = tickit_watch_timer_after_msec(root.tickit,
-						config.dbl_click_ms, 0, deferred_click_timer, NULL);
-				/* Show release key while waiting for possible double-click */
-				curkeys_index = 0;
-				memset(curkeys, 0, sizeof(curkeys));
-				strncpy(curkeys[curkeys_index++], binding->keys[key_length - 1], MAX_KEYNAME - 1);
-			} else {
-				for (int i = 0; i < (int)binding->nactions; i++)
-					binding->actions[i].cmd(binding->actions[i].args);
-				curkeys_index = 0;
-				memset(curkeys, 0, sizeof(curkeys));
-			}
+			for (int i = 0; i < (int)binding->nactions; i++)
+				binding->actions[i].cmd(binding->actions[i].args);
+			curkeys_index = 0;
+			memset(curkeys, 0, sizeof(curkeys));
 			mwin.type = NONE;
 		}
 	} else {

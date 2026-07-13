@@ -749,13 +749,7 @@ static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const
 			i++, tok = strtok_r(NULL, DELIMS, &save)) {
 		if (i >= MAX_KEYS)
 			error("Too many keys in binding \"%s\" in configuration file", name);
-		if (strstr(tok, "dbl-click-")) {
-			if (i + 1 >= MAX_KEYS)
-				error("Too many keys in binding \"%s\" in configuration file", name);
-			int offset = strstr(tok, "dbl-click-") - tok;
-			snprintf(b->keys[i], MAX_KEYNAME, "%.*sdbl-press%s", offset, tok, tok + offset + 9);
-			snprintf(b->keys[++i], MAX_KEYNAME, "%.*sdbl-release%s", offset, tok, tok + offset + 9);
-		} else if ((click = strstr(tok, "click-"))) {
+		if ((click = strstr(tok, "click-"))) {
 			if (i + 1 >= MAX_KEYS)
 				error("Too many keys in binding \"%s\" in configuration file", name);
 			int offset = click - tok;
