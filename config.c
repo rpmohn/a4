@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "lib/inih/ini.h"
+#include "termkey.h"
 
 #define LENGTH(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define DELIMS " 	"
@@ -108,7 +109,9 @@ static void create_sbar_cmd(Config *cfg, const char *value);
 static char *interpret_backslashes(const char *value);
 static void clear_bindings(unsigned int *nbindings, KeyBinding **bindings);
 static void destroy_bindings(unsigned int *nbindings, KeyBinding **bindings);
-static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const char *name, const char *value);
+enum { BIND_VALIDATE_NONE, BIND_VALIDATE_KB, BIND_VALIDATE_MOUSE, BIND_VALIDATE_MTERM };
+static void validate_key_token(const char *tok, const char *name, int validate);
+static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const char *name, const char *value, int validate);
 static void create_startup(unsigned int *nbindings, KeyBinding **bindings, const char *name, const char *value);
 static void expand_num_keybinding_action(Config *cfg, const char *kstr, const char *astr);
 static void expand_tag_keybinding_action(Config *cfg, const char *kstr, const char *astr);
@@ -729,7 +732,120 @@ static void destroy_bindings(unsigned int *nbindings, KeyBinding **bindings) {
 	free(*bindings);
 }
 
-static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const char *name, const char *value) {
+/* TermKey instance used only for validating key names at config parse time.
+ * Abstract (no tty) since we only need its keyname table. */
+static TermKey *keyparse_tk;
+
+/* Strip M- C- S- modifier prefixes in their canonical order. This is the
+ * order termkey_strfkey() and curkeymouse() emit them, so any other order
+ * in the config could never match at runtime. */
+static const char *strip_key_modifiers(const char *tok) {
+	const char *p = tok;
+	if (strncmp(p, "M-", 2) == 0) p += 2;
+	if (strncmp(p, "C-", 2) == 0) p += 2;
+	if (strncmp(p, "S-", 2) == 0) p += 2;
+	return p;
+}
+
+static bool valid_kb_token(const char *tok) {
+	const char *base = strip_key_modifiers(tok);
+	size_t blen = strlen(base);
+
+	if (blen == 0)
+		return false;
+
+	/* names curkeyscpy() substitutes for a trailing space or hyphen */
+	if (strcmp(base, "Space") == 0 || strcmp(base, "Hyphen") == 0)
+		return true;
+
+	/* a literal hyphen or space never matches; runtime emits Space/Hyphen */
+	if (blen == 1 && (base[0] == ' ' || base[0] == '-'))
+		return false;
+
+	/* single UTF-8 character */
+	unsigned char b = base[0];
+	size_t clen = b < 0x80 ? 1 : (b & 0xE0) == 0xC0 ? 2 : (b & 0xF0) == 0xE0 ? 3 : (b & 0xF8) == 0xF0 ? 4 : 0;
+	if (clen > 0 && blen == clen)
+		return true;
+
+	/* function keys F1, F2, ... */
+	if (base[0] == 'F' && isdigit((unsigned char)base[1])) {
+		const char *d = base + 1;
+		while (isdigit((unsigned char)*d))
+			d++;
+		if (*d == '\0')
+			return true;
+	}
+
+	/* named keys known to termkey (Enter, Escape, PageUp, Find, ...) */
+	if (!keyparse_tk)
+		keyparse_tk = termkey_new_abstract("xterm", 0);
+	return keyparse_tk && termkey_keyname2sym(keyparse_tk, base) != TERMKEY_SYM_UNKNOWN;
+}
+
+static bool valid_mouse_token(const char *tok) {
+	const char *p = strip_key_modifiers(tok);
+
+	if (strcmp(p, "wheel-up") == 0 || strcmp(p, "wheel-dn") == 0)
+		return true;
+
+	if (strncmp(p, "dbl-", 4) == 0 || strncmp(p, "tpl-", 4) == 0)
+		p += 4;
+
+	if (strncmp(p, "press-", 6) == 0) p += 6;
+	else if (strncmp(p, "drag-", 5) == 0) p += 5;
+	else if (strncmp(p, "release-", 8) == 0) p += 8;
+	else if (strncmp(p, "click-", 6) == 0) p += 6;
+	else return false;
+
+	return p[0] >= '1' && p[0] <= '9' && p[1] == '\0';
+}
+
+/* Button-1 press/drag/release/click (and dbl-/tpl- variants) with no
+ * modifier, C-, or M-C- are hardcoded in mouse_selection() for text
+ * selection in terminal windows; a binding on them could never fire. */
+static bool mterm_reserved_token(const char *tok) {
+	const char *p = tok;
+	if (strncmp(p, "M-C-", 4) == 0) p += 4;
+	else if (strncmp(p, "C-", 2) == 0) p += 2;
+	/* M- alone or any S- combination is not hardcoded */
+	if (strncmp(p, "M-", 2) == 0 || strncmp(p, "S-", 2) == 0)
+		return false;
+	if (strncmp(p, "dbl-", 4) == 0 || strncmp(p, "tpl-", 4) == 0)
+		p += 4;
+	if (strncmp(p, "press-", 6) == 0) p += 6;
+	else if (strncmp(p, "drag-", 5) == 0) p += 5;
+	else if (strncmp(p, "release-", 8) == 0) p += 8;
+	else if (strncmp(p, "click-", 6) == 0) p += 6;
+	else return false;
+	return p[0] == '1' && p[1] == '\0';
+}
+
+static void validate_key_token(const char *tok, const char *name, int validate) {
+	if (validate == BIND_VALIDATE_NONE)
+		return;
+
+	/* +2 covers the click- to release- expansion in create_binding */
+	if (strlen(tok) + 2 >= MAX_KEYNAME)
+		error("Key \"%s\" too long in binding \"%s\" in configuration file", tok, name);
+
+	if (validate == BIND_VALIDATE_MTERM && mterm_reserved_token(tok))
+		error("Key \"%s\" in binding \"%s\" is reserved for hardcoded button-1 text selection in terminal windows in configuration file", tok, name);
+
+	if ((validate == BIND_VALIDATE_MOUSE || validate == BIND_VALIDATE_MTERM) && valid_mouse_token(tok))
+		return;
+	if (valid_kb_token(tok))
+		return;
+
+	/* a modifier prefix left after stripping means they were out of order */
+	const char *base = strip_key_modifiers(tok);
+	if (strncmp(base, "M-", 2) == 0 || strncmp(base, "C-", 2) == 0 || strncmp(base, "S-", 2) == 0)
+		error("Invalid key \"%s\" in binding \"%s\": modifier prefixes must be in M- C- S- order in configuration file", tok, name);
+
+	error("Invalid key \"%s\" in binding \"%s\" in configuration file", tok, name);
+}
+
+static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const char *name, const char *value, int validate) {
 	unsigned int i, j;
 	char *str, *tok, *save;
 	char *click;
@@ -749,6 +865,7 @@ static void create_binding(unsigned int *nbindings, KeyBinding **bindings, const
 			i++, tok = strtok_r(NULL, DELIMS, &save)) {
 		if (i >= MAX_KEYS)
 			error("Too many keys in binding \"%s\" in configuration file", name);
+		validate_key_token(tok, name, validate);
 		if ((click = strstr(tok, "click-"))) {
 			if (i + 1 >= MAX_KEYS)
 				error("Too many keys in binding \"%s\" in configuration file", name);
@@ -811,7 +928,7 @@ static void create_startup(unsigned int *nbindings, KeyBinding **bindings, const
 	if (!strcmp(value, ""))
 		clear_bindings(nbindings, bindings);
 	else
-		create_binding(nbindings, bindings, name, value);
+		create_binding(nbindings, bindings, name, value, BIND_VALIDATE_NONE);
 }
 
 static void expand_num_keybinding_action(Config *cfg, const char *kstr, const char *astr) {
@@ -822,7 +939,7 @@ static void expand_num_keybinding_action(Config *cfg, const char *kstr, const ch
 	for (int i = 1; i <= 9; i++) {
 		n[0] = i + 48; // Convert number to character
 		snprintf(actionstr, sizeof(actionstr), "%s %d", astr, i);
-		create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, kstr, actionstr);
+		create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, kstr, actionstr, BIND_VALIDATE_KB);
 	}
 }
 
@@ -835,7 +952,7 @@ static void expand_tag_keybinding_action(Config *cfg, const char *kstr, const ch
 	for (int i = 0; i < max && cfg->tagnames[i]; i++) {
 		n[0] = i + 1 + 48; // Convert number to character
 		snprintf(actionstr, sizeof(actionstr), "%s %s", astr, cfg->tagnames[i]);
-		create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, kstr, actionstr);
+		create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, kstr, actionstr, BIND_VALIDATE_KB);
 	}
 }
 
@@ -956,19 +1073,19 @@ static int a4_ini_handler(void *user, const char *section, const char *name, con
 
 	} else if (strcasecmp(section, "keyboardactions") == 0) {
 		if (!special_keyword(cfg, name, value))
-			create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, name, value);
+			create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, name, value, BIND_VALIDATE_KB);
 	} else if (strcasecmp(section, "mousetermwinactions") == 0) {
-		create_binding(&cfg->nmterm_bindings, &cfg->mterm_bindings, name, value);
+		create_binding(&cfg->nmterm_bindings, &cfg->mterm_bindings, name, value, BIND_VALIDATE_MTERM);
 	} else if (strcasecmp(section, "mousetitlebaractions") == 0) {
-		create_binding(&cfg->nmtbar_bindings, &cfg->mtbar_bindings, name, value);
+		create_binding(&cfg->nmtbar_bindings, &cfg->mtbar_bindings, name, value, BIND_VALIDATE_MOUSE);
 	} else if (strcasecmp(section, "mousetagnamesactions") == 0) {
-		create_binding(&cfg->nmtag_bindings, &cfg->mtag_bindings, name, value);
+		create_binding(&cfg->nmtag_bindings, &cfg->mtag_bindings, name, value, BIND_VALIDATE_MOUSE);
 	} else if (strcasecmp(section, "mouselayoutSymbolactions") == 0) {
-		create_binding(&cfg->nmlayout_bindings, &cfg->mlayout_bindings, name, value);
+		create_binding(&cfg->nmlayout_bindings, &cfg->mlayout_bindings, name, value, BIND_VALIDATE_MOUSE);
 	} else if (strcasecmp(section, "mousestatustextactions") == 0) {
-		create_binding(&cfg->nmsbar_bindings, &cfg->msbar_bindings, name, value);
+		create_binding(&cfg->nmsbar_bindings, &cfg->msbar_bindings, name, value, BIND_VALIDATE_MOUSE);
 	} else if (strcasecmp(section, "mouseframelinesactions") == 0) {
-		create_binding(&cfg->nmframe_bindings, &cfg->mframe_bindings, name, value);
+		create_binding(&cfg->nmframe_bindings, &cfg->mframe_bindings, name, value, BIND_VALIDATE_MOUSE);
 
 	} else if (strcasecmp(section, "layouts") == 0) {
 		create_layout(cfg, name, value);
@@ -1060,6 +1177,10 @@ static void include_config(Config *cfg, char *fname) {
 }
 
 static void destroy_config(Config *cfg) {
+	if (keyparse_tk) {
+		termkey_destroy(keyparse_tk);
+		keyparse_tk = NULL;
+	}
 	tickit_pen_unref(cfg->selected_pen);
 	tickit_pen_unref(cfg->unselected_pen);
 	tickit_pen_unref(cfg->urg_selected_pen);
