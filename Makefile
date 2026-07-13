@@ -95,13 +95,18 @@ distclean: clean
 #### inih library, commit 577ae2d 20260130 https://github.com/benhoyt/inih.git ####
 lib/inih/ini.o: lib/inih/ini.h
 
-#### unibilium library tag v2.0.0 commit e3b16d6 20180208 https://github.com/mauke/unibilium.git ####
+#### unibilium library commit f12b4fa 20260630 https://github.com/neovim/unibilium.git ####
+TERMINFO != ncursesw6-config --terminfo 2>/dev/null || \
+	ncurses6-config  --terminfo 2>/dev/null || \
+	ncursesw5-config --terminfo 2>/dev/null || \
+	ncurses5-config  --terminfo 2>/dev/null || \
+	echo "/usr/share/terminfo"
 TERMINFO_DIRS != ncursesw6-config --terminfo-dirs 2>/dev/null || \
 	ncurses6-config  --terminfo-dirs 2>/dev/null || \
 	ncursesw5-config --terminfo-dirs 2>/dev/null || \
 	ncurses5-config  --terminfo-dirs 2>/dev/null || \
 	echo "/etc/terminfo:/lib/terminfo:/usr/share/terminfo:/usr/lib/terminfo:/usr/local/share/terminfo:/usr/local/lib/terminfo"
-unibilium_flags = -DTERMINFO_DIRS='"$(TERMINFO_DIRS)"' -Ilib/unibilium
+unibilium_flags = -DTERMINFO='"$(TERMINFO)"' -DTERMINFO_DIRS='"$(TERMINFO_DIRS)"' -Ilib/unibilium
 lib/unibilium/unibilium.o: lib/unibilium/unibilium.h
 lib/unibilium/uniutil.o: lib/unibilium/unibilium.h
 lib/unibilium/uninames.o: lib/unibilium/unibilium.h

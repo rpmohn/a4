@@ -23,19 +23,33 @@ Prerequisites
   running the test suite)
 - gzip (for compressing the man pages)
 
+Configure
+---------
+
+To generate the `configure` script run:
+
+    autoreconf -fi
+
+To list the `configure` options run:
+
+    ./configure --help
+
+To generate the `Makefile` run:
+
+    ./configure --prefix=...
+
 Building
 --------
 
-There is no configure step. Compile `unibilium.c`, `uninames.c`, and
-`uniutil.c` into a library.
+Compile `unibilium.c`, `uninames.c`, and `uniutil.c` into a library.
 
-The included `Makefile` does this for you:
+The generated `Makefile` does this for you:
 
-    make PREFIX=/usr/local
+    make
 
 or
 
-    make all PREFIX=/usr/local
+    make all
 
 creates the library files, generates the man pages, and compiles the test
 suite.
@@ -51,6 +65,13 @@ override the default behavior:
   is queried (by trying `ncursesw6-config`, `ncurses6-config`,
   `ncursesw5-config`, `ncurses5-config` in turn) and if that fails, a
   hardcoded list of likely directory names is used.
+- `TERMINFO`: A C string literal containing a directory
+  where unibilium should look for compiled terminfo files at
+  runtime (e.g. `make TERMINFO='"/usr/share/terminfo"'`). This depends on how
+  your ncurses library was configured. Defaults to `""` on Windows; everywhere
+  else the local ncurses installation is queried (by trying `ncursesw6-config`,
+  `ncurses6-config`, `ncursesw5-config`, `ncurses5-config` in turn) and if that
+  fails, a hardcoded directory name is used.
 - `PREFIX`: The target directory where files should be installed. This
   variable is only used to set the defaults for `LIBDIR`, `INCDIR`, and
   `MANDIR`, i.e. you don't need to set `PREFIX` if you set the other three
@@ -77,14 +98,14 @@ Run
     make test
 
 to run the included test suite. If that fails, please report it at
-https://github.com/mauke/unibilium/issues.
+https://github.com/neovim/unibilium/issues.
 
 Installing
 ----------
 
 Run
 
-    make install PREFIX=...
+    make install
 
 to install the library, header files, man pages, and pkg-config file. Take
 care to specify the same `PREFIX`, `LIBDIR`, `INCDIR`, and `MANDIR` settings
@@ -94,7 +115,7 @@ you used for building.
 
 - `DESTDIR`: Acts as an additional prefix for the final installation step. For
   example, if you do
-  `make PREFIX=/usr && make install PREFIX=/usr DESTDIR=/tmp`, then the
+  `./configure --prefix=/usr && make && make install DESTDIR=/tmp`, then the
   library will be configured for installation under `/usr`, but the actual
   files will be copied to `/tmp/usr`. Defaults to empty.
 

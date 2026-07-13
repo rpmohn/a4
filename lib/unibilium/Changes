@@ -1,3 +1,25 @@
+2.1.2   2024-07-11
+        - Add build and deps directories to gitignore
+        - build(cmake): allow user to set `TERMINFO_DIRS` (#25)
+        - Do not stop searching on access denied.
+        - build: bump minimum required version (#22)
+        - build: Add a minimal configure.ac
+        - doc: update issue tracker URL #20
+
+2.1.1   2021-04-04
+        - Makefile: fix undefined references with static builds (#19)
+
+2.1.0   2020-02-11
+        - Makefile: use "-f" with prove always (to show failed tests) (#13)
+        - Stop searching in further dirs on errors except ENOENT #12
+        - Makefile: do not rebuild t/static_%.c with updated gen-static-test
+        - Add CMakeLists.txt and support for MSVC (#3)
+        - Relax checks for extended capability to support new format (#5)
+        - Makefile: use -Og with DEBUG=1 (#7)
+        - unibi_from_mem: fix [clang-analyzer-deadcode.DeadStores] (#8)
+        - Makefile: revisit regenerate-tests rule (#6)
+        - unibi_from_term: handle $TERMINFO as curses does #2
+
 2.0.0   2018-02-08
         - rewrite unibi_var_t internals (now the only official access is via
           the helper functions)
