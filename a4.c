@@ -605,6 +605,7 @@ static void keypress(TickitKeyEventInfo *key, const char *seq) {
 	char buffer[MAX_STR];
 	ssize_t bytes;
 
+	mwin = (MWin){0};
 	TFrame *selected = sel;
 
 	if (!selected)
@@ -1784,6 +1785,8 @@ static void attachstack(TFrame *tframe) {
 }
 
 static void destroy_tframe(TFrame *tframe) {
+	if (mwin.tframe == tframe)
+		mwin = (MWin){0};
 	if (sel == tframe)
 		focusnextvis();
 	detach(tframe);
@@ -1860,13 +1863,8 @@ static void focusnextvis(void) {
 static void focus(char *args[]) {
 	TFrame *tframe;
 
-	if ((mwin.type == TERM || mwin.type == TBAR) && (!args || !args[0])) {
-		dofocus(mwin.tframe);
-		if (mwin.tframe->minimized)
-			minimize(NULL);
-	} else if (!sel || !args || !args[0]) {  /* no sel or missing arg */
-		return;
-	} else if (ARGS0EQ("left")) {
+	if (!sel || !args || !args[0])  /* no sel or missing arg */
+		return; else if (ARGS0EQ("left")) {
 		TFrame *tframe = get_tframe_by_coord(frame.rect.top + sel->rect.top, sel->rect.left - 2);
 		if (tframe)
 			dofocus(tframe);
@@ -1918,8 +1916,7 @@ static void focus(char *args[]) {
 		if (lastsel)
 			dofocus(lastsel);
 	} else if (ARGS0EQ("group")) {
-		TFrame *target = (mwin.type == TERM || mwin.type == TBAR) ? mwin.tframe : sel;
-		target->groupedfocus = !target->groupedfocus;
+		sel->groupedfocus = !sel->groupedfocus;
 		expose_all_tbars();
 	} else if (ARGS0EQ("groupall") || ARGS0EQ("0")) {
 		sel->groupedfocus = !sel->groupedfocus;
@@ -1943,11 +1940,9 @@ static void focus(char *args[]) {
 static void zoom(char *args[]) {
 	TFrame *tframe;
 
-	if ((mwin.type == TERM || mwin.type == TBAR) && (!args || !args[0]))
-		dofocus(mwin.tframe);
-	else if (!sel)
+	if (!sel)
 		return;
-	else if (args && args[0] && (atol(args[0]) > 0))
+	if (args && args[0] && (atol(args[0]) > 0))
 		focus(args);
 
 	if ((tframe = sel) == nextvisible(tframes))
@@ -2544,7 +2539,7 @@ static void create(char *args[]) {
 }
 
 static void destroy(char *args[]) {
-	TFrame *selected = (mwin.type == TERM || mwin.type == TBAR ? mwin.tframe : sel);
+	TFrame *selected = sel;
 	if (!selected || selected->readonly)
 		return;
 	kill(-selected->worker_pid, SIGKILL);
