@@ -120,7 +120,7 @@ static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user) {
 		/* Buffer full: evict the oldest line, which occupies the new_head slot */
 		ScrollbackLine *old = tframe->sb_buffer[new_head];
 		tframe->sb_buffer[new_head] = NULL; /* clear before free so failure path is safe */
-		if (old->cols == cols)
+		if (old && old->cols == cols)
 			sb_row = old; /* recycle allocation */
 		else
 			free(old);

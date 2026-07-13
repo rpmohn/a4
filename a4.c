@@ -1335,26 +1335,23 @@ static int get_status(Tickit *t, TickitEventFlags flags, void *_info, void *data
 		return 1;
 
 	FILE *fp = popen(config.sbar_cmds[sbar_cmd_num], "r");
-	if (fp == NULL) {
-		error("Failed to run statusbar command \"%s\"", config.sbar_cmds[sbar_cmd_num]);
-		return 0;
+	if (fp != NULL) {
+		int len = sizeof(sbar.text);
+		char *ptr = sbar.text;
+		while (fgets(ptr, len, fp) && len > 1) {
+			ptr += strcspn(ptr, "\n");
+			ptr[0] = 0;
+			len = sizeof(sbar.text) - strlen(sbar.text);
+		}
+		pclose(fp);
+		tickit_window_expose(sbar.win, NULL);
 	}
-	int len = sizeof(sbar.text);
-	char *ptr = sbar.text;
-	while (fgets(ptr, len, fp) && len > 1) {
-		ptr += strcspn(ptr, "\n");
-		ptr[0] = 0;
-		len = sizeof(sbar.text) - strlen(sbar.text);
-	}
-	pclose(fp);
 
-	tickit_window_expose(sbar.win, NULL);
+	sbar_cmd_num = (sbar_cmd_num + 1) % config.nsbar_cmds;
 
 	/* if statusbar_interval is 0 then run once and don't reschedule */
 	if (config.statusbar_interval > 0)
 		sbar.watch_cmd = tickit_watch_timer_after_msec(root.tickit, config.statusbar_interval * 1000, 0, &get_status, NULL);
-
-	sbar_cmd_num = (sbar_cmd_num + 1) % config.nsbar_cmds;
 
 	return 1;
 }
