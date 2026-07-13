@@ -1033,6 +1033,9 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 		if (!ctrl_sel && !sel_continuing) {
 			altscreenmouse(mw->tframe, m);
 			if (m->type == TICKIT_MOUSEEV_PRESS) {
+				dofocus(mw->tframe);
+				if (mw->tframe->minimized)
+					minimize(NULL);
 				altscreen_drag_active = false;
 				altscreen_passthrough = true;
 			} else if (m->type == TICKIT_MOUSEEV_RELEASE) {
