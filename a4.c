@@ -1089,6 +1089,7 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 				word_anchor.start_col = wstart;
 				word_anchor.end_col = wend;
 				word_select_mode = true;
+				selection.block = (m->mod == (TICKIT_MOD_CTRL | TICKIT_MOD_ALT));
 				selection.tframe = tf;
 				selection.start_row = term_row;
 				selection.start_col = wstart;
@@ -1115,27 +1116,35 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 			if (word_select_mode) {
 				int wstart, wend;
 				find_word_boundary(tf, term_row, term_col, &wstart, &wend);
-				bool before_anchor = (term_row < word_anchor.row ||
-				    (term_row == word_anchor.row && term_col < word_anchor.start_col));
-				bool after_anchor = (term_row > word_anchor.row ||
-				    (term_row == word_anchor.row && term_col > word_anchor.end_col));
-				if (before_anchor) {
-					selection.start_row = term_row;
-					selection.start_col = wstart;
-					selection.end_row = word_anchor.row;
-					selection.end_col = word_anchor.end_col;
-				} else if (after_anchor) {
+				if (selection.block) {
 					selection.start_row = word_anchor.row;
-					selection.start_col = word_anchor.start_col;
-					selection.end_row = term_row;
-					selection.end_col = wend;
+					selection.end_row   = term_row;
+					selection.start_col = MIN(word_anchor.start_col, wstart);
+					selection.end_col   = MAX(word_anchor.end_col,   wend);
+					selection.tframe    = tf;
 				} else {
-					selection.start_row = word_anchor.row;
-					selection.start_col = word_anchor.start_col;
-					selection.end_row = word_anchor.row;
-					selection.end_col = word_anchor.end_col;
+					bool before_anchor = (term_row < word_anchor.row ||
+					    (term_row == word_anchor.row && term_col < word_anchor.start_col));
+					bool after_anchor = (term_row > word_anchor.row ||
+					    (term_row == word_anchor.row && term_col > word_anchor.end_col));
+					if (before_anchor) {
+						selection.start_row = term_row;
+						selection.start_col = wstart;
+						selection.end_row = word_anchor.row;
+						selection.end_col = word_anchor.end_col;
+					} else if (after_anchor) {
+						selection.start_row = word_anchor.row;
+						selection.start_col = word_anchor.start_col;
+						selection.end_row = term_row;
+						selection.end_col = wend;
+					} else {
+						selection.start_row = word_anchor.row;
+						selection.start_col = word_anchor.start_col;
+						selection.end_row = word_anchor.row;
+						selection.end_col = word_anchor.end_col;
+					}
+					selection.tframe = tf;
 				}
-				selection.tframe = tf;
 			} else {
 				selection.end_row = term_row;
 				selection.end_col = term_col;
