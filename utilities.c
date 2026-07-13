@@ -34,12 +34,30 @@ static void load_NameValues(NameValue **set, const char *fname);
 
 /* functions */
 static void error(const char *errstr, ...) {
+	/* Inside a session, stderr is the session PTY and this process exiting
+	 * is what terminates the session. Pause before printing so the client
+	 * has attached (output to an unattached session is dropped), and after
+	 * so the server relays the message before exit triggers MSG_EXIT.
+	 * Leave the alternate screen first so the message lands on the primary
+	 * buffer and survives the client's own altscreen restore at exit. */
+	bool insession = getenv("A4_SESSION") != NULL;
+	if (insession) {
+		nanosleep(&(struct timespec){ .tv_nsec = 300000000 }, NULL);
+		fprintf(stderr, "\033[?1049l");
+	}
 	fprintf(stderr, "ERROR: ");
 	va_list ap;
 	va_start(ap, errstr);
 	vfprintf(stderr, errstr, ap);
 	va_end(ap);
 	fprintf(stderr, "\n");
+	if (insession) {
+		/* Re-save the cursor (DECSC) so the client's exiting ?1049l
+		 * restores to below the message instead of on top of it. */
+		fprintf(stderr, "\0337");
+		fflush(stderr);
+		nanosleep(&(struct timespec){ .tv_nsec = 200000000 }, NULL);
+	}
 	exit(EXIT_FAILURE);
 }
 
