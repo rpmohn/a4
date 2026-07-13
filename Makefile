@@ -137,7 +137,7 @@ lib/libtickit/src/tickit.o: lib/libtickit/include/tickit.h lib/libtickit/include
 lib/libtickit/src/utf8.o: lib/libtickit/include/tickit.h lib/libtickit/src/unicode.h lib/libtickit/src/fullwidth.inc
 lib/libtickit/src/window.o: lib/libtickit/include/tickit.h lib/libtickit/src/bindings.h
 
-#### libvterm revision 826 20230126 https://bazaar.leonerd.org.uk/c/libvterm/ ####
+#### libvterm v0.3.3 revision 844 20240724 https://bazaar.leonerd.org.uk/c/libvterm/ ####
 vterm_flags = -Ilib/libvterm/include
 lib/libvterm/src/encoding.o: lib/libvterm/include/vterm.h lib/libvterm/include/vterm_keycodes.h \
 	lib/libvterm/src/vterm_internal.h lib/libvterm/src/encoding/DECdrawing.inc lib/libvterm/src/encoding/uk.inc

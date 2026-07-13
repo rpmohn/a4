@@ -58,6 +58,7 @@ struct VTermState
 
   const VTermStateCallbacks *callbacks;
   void *cbdata;
+  bool callbacks_has_premove;
 
   const VTermStateFallbacks *fallbacks;
   void *fbdata;
@@ -158,6 +159,7 @@ struct VTermState
         SELECTION_QUERY,
         SELECTION_SET_INITIAL,
         SELECTION_SET,
+        SELECTION_INVALID,
       } state : 8;
       uint32_t recvpartial;
       uint32_t sendpartial;

@@ -48,6 +48,7 @@ struct VTermScreen
 
   const VTermScreenCallbacks *callbacks;
   void *cbdata;
+  bool callbacks_has_pushline4;
 
   VTermDamageSize damage_merge;
   /* start_row == -1 => no damage */
@@ -205,26 +206,39 @@ static int putglyph(VTermGlyphInfo *info, VTermPos pos, void *user)
   return 1;
 }
 
-static void sb_pushline_from_row(VTermScreen *screen, int row)
+static void sb_pushline_from_row(VTermScreen *screen, int row, bool continuation)
 {
   VTermPos pos = { .row = row };
   for(pos.col = 0; pos.col < screen->cols; pos.col++)
     vterm_screen_get_cell(screen, pos, screen->sb_buffer + pos.col);
 
-  (screen->callbacks->sb_pushline)(screen->cols, screen->sb_buffer, screen->cbdata);
+  if(screen->callbacks_has_pushline4 && screen->callbacks->sb_pushline4)
+    (screen->callbacks->sb_pushline4)(screen->cols, screen->sb_buffer, continuation, screen->cbdata);
+  else
+    (screen->callbacks->sb_pushline)(screen->cols, screen->sb_buffer, screen->cbdata);
+}
+
+static int premove(VTermRect rect, void *user)
+{
+  VTermScreen *screen = user;
+
+  if(((screen->callbacks && screen->callbacks->sb_pushline) ||
+        (screen->callbacks_has_pushline4 && screen->callbacks && screen->callbacks->sb_pushline4)) &&
+     rect.start_row == 0 && rect.start_col == 0 &&        // starts top-left corner
+     rect.end_col == screen->cols &&                      // full width
+     screen->buffer == screen->buffers[BUFIDX_PRIMARY]) { // not altscreen
+    for(int row = 0; row < rect.end_row; row++) {
+      const VTermLineInfo *lineinfo = vterm_state_get_lineinfo(screen->state, row);
+      sb_pushline_from_row(screen, row, lineinfo->continuation);
+    }
+  }
+
+  return 1;
 }
 
 static int moverect_internal(VTermRect dest, VTermRect src, void *user)
 {
   VTermScreen *screen = user;
-
-  if(screen->callbacks && screen->callbacks->sb_pushline &&
-     dest.start_row == 0 && dest.start_col == 0 &&        // starts top-left corner
-     dest.end_col == screen->cols &&                      // full width
-     screen->buffer == screen->buffers[BUFIDX_PRIMARY]) { // not altscreen
-    for(int row = 0; row < src.start_row; row++)
-      sb_pushline_from_row(screen, row);
-  }
 
   int cols = src.end_col - src.start_col;
   int downward = src.start_row - dest.start_row;
@@ -502,8 +516,6 @@ static int line_popcount(ScreenCell *buffer, int row, int rows, int cols)
   return col + 1;
 }
 
-#define REFLOW (screen->reflow)
-
 static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new_cols, bool active, VTermStateFields *statefields)
 {
   int old_rows = screen->rows;
@@ -534,7 +546,7 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
   while(old_row >= 0) {
     int old_row_end = old_row;
     /* TODO: Stop if dwl or dhl */
-    while(REFLOW && old_lineinfo && old_row >= 0 && old_lineinfo[old_row].continuation)
+    while(screen->reflow && old_lineinfo && old_row >= 0 && old_lineinfo[old_row].continuation)
       old_row--;
     /* Clamp to 0: if the logical line starts in scrollback we can't access rows before the
      * screen buffer, so treat the first visible row as the logical line start. */
@@ -542,7 +554,7 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
 
     int width = 0;
     for(int row = old_row_start; row <= old_row_end; row++) {
-      if(REFLOW && row < (old_rows - 1) && old_lineinfo[row + 1].continuation)
+      if(screen->reflow && row < (old_rows - 1) && old_lineinfo[row + 1].continuation)
         width += old_cols;
       else
         width += line_popcount(old_buffer, row, old_rows, old_cols);
@@ -551,7 +563,7 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
     if(final_blank_row == (new_row + 1) && width == 0)
       final_blank_row = new_row;
 
-    int new_height = REFLOW
+    int new_height = screen->reflow
       ? width ? (width + new_cols - 1) / new_cols : 1
       : 1;
 
@@ -624,7 +636,7 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
         if(old_col == old_cols) {
           old_row++;
 
-          if(!REFLOW) {
+          if(!screen->reflow) {
             new_col++;
             break;
           }
@@ -669,9 +681,12 @@ static void resize_buffer(VTermScreen *screen, int bufidx, int new_rows, int new
 
   if(old_row >= 0 && bufidx == BUFIDX_PRIMARY) {
     /* Push spare lines to scrollback buffer */
-    if(screen->callbacks && screen->callbacks->sb_pushline)
-      for(int row = 0; row <= old_row; row++)
-        sb_pushline_from_row(screen, row);
+    if((screen->callbacks && screen->callbacks->sb_pushline) ||
+          (screen->callbacks_has_pushline4 && screen->callbacks && screen->callbacks->sb_pushline4))
+      for(int row = 0; row <= old_row; row++) {
+        const VTermLineInfo *lineinfo = old_lineinfo + row;
+        sb_pushline_from_row(screen, row, lineinfo->continuation);
+      }
     if(active)
       statefields->pos.row -= (old_row + 1);
   }
@@ -857,6 +872,7 @@ static int sb_clear(void *user) {
 static VTermStateCallbacks state_cbs = {
   .putglyph    = &putglyph,
   .movecursor  = &movecursor,
+  .premove     = &premove,
   .scrollrect  = &scrollrect,
   .erase       = &erase,
   .setpenattr  = &setpenattr,
@@ -893,6 +909,7 @@ static VTermScreen *screen_new(VTerm *vt)
 
   screen->callbacks = NULL;
   screen->cbdata    = NULL;
+  screen->callbacks_has_pushline4 = false;
 
   screen->buffers[BUFIDX_PRIMARY] = alloc_buffer(screen, rows, cols);
 
@@ -901,6 +918,7 @@ static VTermScreen *screen_new(VTerm *vt)
   screen->sb_buffer = vterm_allocator_malloc(screen->vt, sizeof(VTermScreenCell) * cols);
 
   vterm_state_set_callbacks(screen->state, &state_cbs, screen);
+  vterm_state_callbacks_has_premove(screen->state);
 
   return screen;
 }
@@ -1076,6 +1094,11 @@ void vterm_screen_set_callbacks(VTermScreen *screen, const VTermScreenCallbacks 
 void *vterm_screen_get_cbdata(VTermScreen *screen)
 {
   return screen->cbdata;
+}
+
+void vterm_screen_callbacks_has_pushline4(VTermScreen *screen)
+{
+  screen->callbacks_has_pushline4 = true;
 }
 
 void vterm_screen_set_unrecognised_fallbacks(VTermScreen *screen, const VTermStateFallbacks *fallbacks, void *user)

@@ -14,7 +14,7 @@ static int vts_moverect(VTermRect dest, VTermRect src, void *user);
 static int vts_movecursor(VTermPos pos, VTermPos oldpos, int visible, void *user);
 static int vts_settermprop(VTermProp prop, VTermValue *val, void *user);
 static int vts_bell(void *user);
-static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user);
+static int vts_sb_pushline4(int cols, const VTermScreenCell *cells, bool continuation, void *user);
 static int vts_sb_popline(int cols, VTermScreenCell *cells, void *user);
 static int vts_fallback_csi(const char *leader, const long args[], int argcount, const char *intermed, char command, void *user);
 static int sync_timeout(Tickit *t, TickitEventFlags flags, void *info, void *user);
@@ -108,7 +108,10 @@ static int vts_bell(void *user) {
 	redraw(NULL);
 	return 1;
 }
-static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user) {
+/* sb_pushline4 supplies the pushed row's own continuation flag directly,
+ * replacing the old trick of reading vterm_state_get_lineinfo(state, 0)
+ * which depended on callback-vs-memmove ordering inside libvterm. */
+static int vts_sb_pushline4(int cols, const VTermScreenCell *cells, bool continuation, void *user) {
 	TFrame *tframe = user;
 
 	if (config.scroll_history == 0)
@@ -141,8 +144,7 @@ static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user) {
 
 	tframe->sb_head = new_head;
 	tframe->sb_buffer[tframe->sb_head] = sb_row;
-	const VTermLineInfo *li = vterm_state_get_lineinfo(vterm_obtain_state(tframe->vt), 0);
-	sb_row->continuation = li ? li->continuation : 0;
+	sb_row->continuation = continuation;
 	memcpy(sb_row->cells, cells, cols * sizeof(cells[0]));
 
 	return 1;
@@ -186,7 +188,7 @@ VTermScreenCallbacks vtermscreencallbacks = {
 	.movecursor  = vts_movecursor,
 	.settermprop = vts_settermprop,
 	.bell        = vts_bell,
-	.sb_pushline = vts_sb_pushline,
+	.sb_pushline4 = vts_sb_pushline4,
 	.sb_popline  = vts_sb_popline,
 };
 
@@ -447,6 +449,7 @@ static void get_vterm_cmd(TFrame *tframe, const char *cmd, const char *argv[], c
 	vterm_screen_enable_altscreen(tframe->vts, true);
 	vterm_screen_enable_reflow(tframe->vts, true);
 	vterm_screen_set_callbacks(tframe->vts, &vtermscreencallbacks, tframe);
+	vterm_screen_callbacks_has_pushline4(tframe->vts);
 	vterm_screen_set_unrecognised_fallbacks(tframe->vts, &vtermfallbacks, tframe);
 
 	tframe->sb_current = tframe->sb_offset = tframe->sb_head = 0;

@@ -902,9 +902,13 @@ static char *selection_extract_text(void) {
 		}
 
 		if (row < er) {
+			/* Suppress the newline when the NEXT row is a soft-wrap
+			 * continuation of this one. ScrollbackLine.continuation is the
+			 * row's own flag (sb_pushline4 semantics). */
 			bool is_continuation = false;
-			if (vrow < 0) {
-				int depth = -vrow;
+			int next_vrow = vrow + 1;
+			if (next_vrow < 0) {
+				int depth = -next_vrow;
 				if (depth <= tf->sb_current) {
 					int idx = (tf->sb_head + depth - 1) % config.scroll_history;
 					if (tf->sb_buffer[idx])
@@ -912,7 +916,7 @@ static char *selection_extract_text(void) {
 				}
 			} else {
 				const VTermLineInfo *li = vterm_state_get_lineinfo(
-					vterm_obtain_state(tf->vt), vrow + 1);
+					vterm_obtain_state(tf->vt), next_vrow);
 				is_continuation = li && li->continuation;
 			}
 			if (!is_continuation && pos < bufsize - 1)
