@@ -384,7 +384,7 @@ static int pty_read(Tickit *t, TickitEventFlags flags, void *_info, void *data) 
 		}
 		if (bytes == 0) {
 			DEBUG_LOGF("Upr", "read pty fd %d returned 0 bytes", fd);
-			quit(NULL);
+			tframe->died = true;
 			return 0;
 		}
 		vterm_input_write(tframe->vt, buffer, bytes);

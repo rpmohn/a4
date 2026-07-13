@@ -27,7 +27,7 @@ static void zoom_left_right(int type) {
 	znum = MAX(1, MIN(num, currzoomnum));
 	zcols = (num <= znum ? frame.rect.cols : currzoomsize * frame.rect.cols);
 	zlines = flines / znum;
-	slines = (num <= znum ? 0 : flines / (num - znum));
+	slines = (num <= znum ? 0 : MAX(1, flines / (int)(num - znum)));
 
 	tfrect.top = 0;
 	tfrect.left = (type == LAYOUT_LEFT ? 0 : frame.rect.cols - zcols);
@@ -88,8 +88,8 @@ static void zoom_top_bot(int type) {
 	flines = frame.rect.lines - (noneminimized ? 0 : 1);
 	znum  = MAX(1, MIN(num, currzoomnum));
 	zlines = (num <= znum ? flines : currzoomsize * (flines + 1));
-	zcols = (frame.rect.cols / znum);
-	scols = (num <= znum ? 0 : frame.rect.cols / (num - znum));
+	zcols = MAX(1, frame.rect.cols / (int)znum);
+	scols = (num <= znum ? 0 : MAX(1, frame.rect.cols / (int)(num - znum)));
 
 	tfrect.left = 0;
 	tfrect.top = (type == LAYOUT_TOP ? 0 : flines - zlines);

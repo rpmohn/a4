@@ -1787,6 +1787,14 @@ static void attachstack(TFrame *tframe) {
 static void destroy_tframe(TFrame *tframe) {
 	if (mwin.tframe == tframe)
 		mwin = (MWin){0};
+	if (selection.tframe == tframe)
+		selection_clear();
+	if (sel_pending.tframe == tframe)
+		sel_pending.tframe = NULL;
+	if (copymode_state.original == tframe)
+		copymode_state.original = NULL;
+	if (copymode_state.overlay == tframe)
+		copymode_state.overlay = NULL;
 	if (sel == tframe)
 		focusnextvis();
 	detach(tframe);
@@ -1900,7 +1908,7 @@ static void focus(char *args[]) {
 			tframe = nextvisible(tframe->next);
 			if (!tframe)
 				tframe = nextvisible(tframes);
-		} while (tframe->minimized && tframe != sel);
+		} while (tframe && tframe->minimized && tframe != sel);
 		dofocus(tframe);
 	} else if (ARGS0EQ("PREV")) {
 		tframe = sel;
