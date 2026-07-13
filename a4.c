@@ -595,7 +595,7 @@ static void keypress(TickitKeyEventInfo *key, const char *seq) {
 	char buffer[MAX_STR];
 	ssize_t bytes;
 
-	TFrame *selected = ((mwin.type == TERM || mwin.type == TBAR) ? mwin.tframe : sel);
+	TFrame *selected = sel;
 
 	if (!selected)
 		return;
