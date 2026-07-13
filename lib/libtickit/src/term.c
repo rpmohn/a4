@@ -34,6 +34,8 @@
 #define MSEC      1000
 #define SECOND 1000000
 
+#define DEBUG_LOGF  if(tickit_debug_enabled) tickit_debug_logf
+
 #include <termkey.h>
 
 static TickitTermDriverInfo *driver_infos[] = {
@@ -447,6 +449,8 @@ void tickit_term_set_size(TickitTerm *tt, int lines, int cols)
     tt->cols  = cols;
 
     TickitResizeEventInfo info = { .lines = lines, .cols = cols };
+
+    DEBUG_LOGF("Ir", "Resize to %dx%d", lines, cols);
     run_events(tt, TICKIT_TERM_ON_RESIZE, &info);
   }
 }
@@ -655,6 +659,45 @@ void tickit_term_await_started_tv(TickitTerm *tt, const struct timeval *timeout)
   tt->state = STARTED;
 }
 
+static const char * const modnames[] = {
+  [0] = "",
+  [TICKIT_MOD_SHIFT]                                = "SHIFT",
+  [TICKIT_MOD_ALT]                                  = "ALT",
+  [TICKIT_MOD_ALT|TICKIT_MOD_SHIFT]                 = "ALT+SHIFT",
+  [TICKIT_MOD_CTRL]                                 = "CTRL",
+  [TICKIT_MOD_CTRL|TICKIT_MOD_SHIFT]                = "CTRL+SHIFT",
+  [TICKIT_MOD_CTRL|TICKIT_MOD_ALT]                  = "CTRL+ALT",
+  [TICKIT_MOD_CTRL|TICKIT_MOD_ALT|TICKIT_MOD_SHIFT] = "CTRL+ALT+SHIFT",
+};
+
+static void debug_key(TickitKeyEventInfo *info)
+{
+  static const char * const evnames[] = { NULL, "KEY", "TEXT" };
+  const char * evname = evnames[info->type];
+  int mod = info->mod;
+
+  if(!mod)
+    tickit_debug_logf("Ik", "Key event %s %s", evname, info->str);
+  else if(info->mod <= (TICKIT_MOD_CTRL|TICKIT_MOD_ALT|TICKIT_MOD_SHIFT))
+    tickit_debug_logf("Ik", "Key event %s %s (mod=%s)", evname, info->str, modnames[mod]);
+  else
+    tickit_debug_logf("Ik", "Key event %s %s (mod=%02x)", evname, info->str, mod);
+}
+
+static void debug_mouse(TickitMouseEventInfo *info)
+{
+  static const char * const evnames[] = { NULL, "PRESS", "DRAG", "RELEASE", "WHEEL" };
+  const char * evname = evnames[info->type];
+  int mod = info->mod;
+
+  if(!mod)
+    tickit_debug_logf("Im", "Mouse event %s %d @%d,%d", evname, info->button, info->col, info->line);
+  else if(mod <= (TICKIT_MOD_CTRL|TICKIT_MOD_ALT|TICKIT_MOD_SHIFT))
+    tickit_debug_logf("Im", "Mouse event %s %d @%d,%d (mod=%s)", evname, info->button, info->col, info->line, modnames[mod]);
+  else
+    tickit_debug_logf("Im", "Mouse event %s %d @%d,%d (mod=%02x)", evname, info->button, info->col, info->line, mod);
+}
+
 static void got_key(TickitTerm *tt, TermKey *tk, TermKeyKey *key)
 {
   if(key->type == TERMKEY_TYPE_MOUSE) {
@@ -670,8 +713,8 @@ static void got_key(TickitTerm *tt, TermKey *tk, TermKeyKey *key)
     default:                    info.type = -1; break;
     }
 
-    /* Translate PRESS of buttons >= 4 into wheel events */
-    if(ev == TERMKEY_MOUSE_PRESS && info.button >= 4) {
+    /* Translate PRESS or RELEASE of buttons >= 4 into wheel events */
+    if(info.button >= 4) {
       info.type = TICKIT_MOUSEEV_WHEEL;
       info.button -= (4 - TICKIT_MOUSEWHEEL_UP);
     }
@@ -689,12 +732,14 @@ static void got_key(TickitTerm *tt, TermKey *tk, TermKeyKey *key)
        * all were */
       for(info.button = 1; tt->mouse_buttons_held; info.button++)
         if(tt->mouse_buttons_held & (1 << info.button)) {
+          if(tickit_debug_enabled) debug_mouse(&info);
           run_events_whilefalse(tt, TICKIT_TERM_ON_MOUSE, &info);
           tt->mouse_buttons_held &= ~(1 << info.button);
         }
       return; // Buttons have been handled
     }
 
+    if(tickit_debug_enabled) debug_mouse(&info);
     run_events_whilefalse(tt, TICKIT_TERM_ON_MOUSE, &info);
   }
   else if(key->type == TERMKEY_TYPE_UNICODE && !key->modifiers) {
@@ -705,6 +750,7 @@ static void got_key(TickitTerm *tt, TermKey *tk, TermKeyKey *key)
       .mod  = key->modifiers,
     };
 
+    if(tickit_debug_enabled) debug_key(&info);
     run_events_whilefalse(tt, TICKIT_TERM_ON_KEY, &info);
   }
   else if(key->type == TERMKEY_TYPE_UNICODE ||
@@ -719,6 +765,7 @@ static void got_key(TickitTerm *tt, TermKey *tk, TermKeyKey *key)
       .mod  = key->modifiers,
     };
 
+    if(tickit_debug_enabled) debug_key(&info);
     run_events_whilefalse(tt, TICKIT_TERM_ON_KEY, &info);
   }
   else if(key->type == TERMKEY_TYPE_MODEREPORT) {
@@ -743,11 +790,13 @@ static void got_key(TickitTerm *tt, TermKey *tk, TermKeyKey *key)
 
 void tickit_term_emit_key(TickitTerm *tt, TickitKeyEventInfo *info)
 {
+  if(tickit_debug_enabled) debug_key(info);
   run_events_whilefalse(tt, TICKIT_TERM_ON_KEY, info);
 }
 
 void tickit_term_emit_mouse(TickitTerm *tt, TickitMouseEventInfo *info)
 {
+  if(tickit_debug_enabled) debug_mouse(info);
   run_events_whilefalse(tt, TICKIT_TERM_ON_MOUSE, info);
 }
 

@@ -786,7 +786,8 @@ static bool valid_kb_token(const char *tok) {
 static bool valid_mouse_token(const char *tok) {
 	const char *p = strip_key_modifiers(tok);
 
-	if (strcmp(p, "wheel-up") == 0 || strcmp(p, "wheel-dn") == 0)
+	if (strcmp(p, "wheel-up") == 0 || strcmp(p, "wheel-dn") == 0 ||
+	    strcmp(p, "wheel-left") == 0 || strcmp(p, "wheel-right") == 0)
 		return true;
 
 	if (strncmp(p, "dbl-", 4) == 0 || strncmp(p, "tpl-", 4) == 0)

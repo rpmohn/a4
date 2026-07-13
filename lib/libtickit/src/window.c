@@ -104,8 +104,6 @@ static int on_term_resize(TickitTerm *term, TickitEventFlags flags, void *_info,
   int oldcols  = win->rect.cols;
 
   tickit_window_resize(win, info->lines, info->cols);
-  DEBUG_LOGF("Ir", "Resize to %dx%d",
-      info->cols, info->lines);
 
   if(info->lines > oldlines) {
     TickitRect damage = {
@@ -136,10 +134,6 @@ static int on_term_key(TickitTerm *term, TickitEventFlags flags, void *_info, vo
   TickitWindow *win = ROOT_AS_WINDOW(root);
 
   TickitKeyEventInfo *info = _info;
-  static const char * const evnames[] = { NULL, "KEY", "TEXT" };
-
-  DEBUG_LOGF("Ik", "Key event %s %s (mod=%02x)",
-      evnames[info->type], info->str, info->mod);
 
   return _handle_key(win, info);
 }
@@ -150,10 +144,6 @@ static int on_term_mouse(TickitTerm *term, TickitEventFlags flags, void *_info, 
   TickitWindow *win = ROOT_AS_WINDOW(root);
 
   TickitMouseEventInfo *info = _info;
-  static const char * const evnames[] = { NULL, "PRESS", "DRAG", "RELEASE", "WHEEL" };
-
-  DEBUG_LOGF("Im", "Mouse event %s %d @%d,%d (mod=%02x)",
-      evnames[info->type], info->button, info->col, info->line, info->mod);
 
   if(info->type == TICKIT_MOUSEEV_PRESS) {
     /* Save the last press location in case of drag */

@@ -27,7 +27,7 @@ extern "C" {
 
 #define TICKIT_VERSION_MAJOR 0
 #define TICKIT_VERSION_MINOR 4
-#define TICKIT_VERSION_PATCH 3
+#define TICKIT_VERSION_PATCH 6
 
 int tickit_version_major(void);
 int tickit_version_minor(void);
@@ -85,6 +85,7 @@ typedef enum {
 typedef enum {
   TICKIT_IO_IN    = 1<<0,
   TICKIT_IO_OUT   = 1<<1,
+  TICKIT_IO_PRI   = 1<<5,
   TICKIT_IO_HUP   = 1<<2,
   TICKIT_IO_ERR   = 1<<3,
   TICKIT_IO_INVAL = 1<<4,
@@ -279,6 +280,8 @@ typedef enum {
 enum {
   TICKIT_MOUSEWHEEL_UP = 1,
   TICKIT_MOUSEWHEEL_DOWN,
+  TICKIT_MOUSEWHEEL_LEFT,
+  TICKIT_MOUSEWHEEL_RIGHT,
 };
 
 typedef struct {

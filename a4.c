@@ -420,7 +420,10 @@ static void curkeymouse(TickitMouseEventInfo *m) {
 
 	switch(m->type) {
 		case TICKIT_MOUSEEV_WHEEL:
-			snprintf(s, remaining, "wheel-%s", (m->button == TICKIT_MOUSEWHEEL_UP ? "up" : "dn"));
+			snprintf(s, remaining, "wheel-%s",
+					m->button == TICKIT_MOUSEWHEEL_UP   ? "up" :
+					m->button == TICKIT_MOUSEWHEEL_DOWN ? "dn" :
+					m->button == TICKIT_MOUSEWHEEL_LEFT ? "left" : "right");
 			break;
 		case TICKIT_MOUSEEV_PRESS:
 			snprintf(s, remaining, multi_click == 3 ? "tpl-press-%d" :

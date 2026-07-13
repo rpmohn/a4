@@ -117,7 +117,7 @@ lib/libtermkey/termkey.o: lib/libtermkey/termkey.h lib/libtermkey/termkey-intern
 lib/libtermkey/driver-csi.o: lib/libtermkey/termkey.h lib/libtermkey/termkey-internal.h
 lib/libtermkey/driver-ti.o: lib/libtermkey/termkey.h lib/libtermkey/termkey-internal.h
 
-#### libtickit revision 810 20221204 https://bazaar.leonerd.org.uk/c/libtickit/ ####
+#### libtickit v0.4.6 revision 819 20260212 https://bazaar.leonerd.org.uk/c/libtickit/ ####
 tickit_flags = -Ilib/libtickit/include
 lib/libtickit/src/bindings.o: lib/libtickit/include/tickit.h lib/libtickit/src/bindings.h
 lib/libtickit/src/debug.o: lib/libtickit/include/tickit.h

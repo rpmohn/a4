@@ -123,8 +123,10 @@ static void evloop_destroy(void *data)
     free(evdata->pollfds);
   if(evdata->pollwatches)
     free(evdata->pollwatches);
+#if HAVE_PPOLL
   if(evdata->signums)
     free(evdata->signums);
+#endif
 
   if(signal_observer == evdata)
     signal_observer = NULL;
@@ -173,6 +175,8 @@ static void evloop_run(void *data, TickitRunFlags flags)
           cond |= TICKIT_IO_IN;
         if(revents & POLLOUT)
           cond |= TICKIT_IO_OUT;
+        if(revents & POLLPRI)
+          cond |= TICKIT_IO_PRI;
         if(revents & POLLHUP)
           cond |= TICKIT_IO_HUP;
         if(revents & POLLERR)
@@ -234,6 +238,8 @@ reuse_idx:
     events |= POLLIN;
   if(cond & TICKIT_IO_OUT)
     events |= POLLOUT;
+  if(cond & TICKIT_IO_PRI)
+    events |= POLLPRI;
   if(cond & TICKIT_IO_HUP)
     events |= POLLHUP;
   evdata->pollfds[idx].events = events;
