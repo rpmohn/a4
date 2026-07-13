@@ -18,6 +18,7 @@ static int vts_sb_pushline(int cols, const VTermScreenCell *cells, void *user);
 static int vts_sb_popline(int cols, VTermScreenCell *cells, void *user);
 static int vts_fallback_csi(const char *leader, const long args[], int argcount, const char *intermed, char command, void *user);
 static int sync_timeout(Tickit *t, TickitEventFlags flags, void *info, void *user);
+static int render_later(Tickit *t, TickitEventFlags flags, void *info, void *user);
 
 static void tickit_pen_set_palette_colour(TickitPen *pen, TickitPenAttr attr, VTermColor *col, ColorScheme *cs);
 static void applycolorrules(TFrame *tframe);
@@ -64,8 +65,9 @@ static int vts_moverect(VTermRect dst, VTermRect src, void *user) {
 
 static int vts_movecursor(VTermPos pos, VTermPos oldpos, int visible, void *user) {
 	TFrame *tframe = user;
-	//DEBUG_LOGF("Umc", "vts_movecursor from %d/%d to %d/%d", oldpos.row, oldpos.col, pos.row, pos.col);
-	tickit_window_set_cursor_position(tframe->termwin, pos.row, pos.col);
+	/* defer to render_later; calling tickit_window_set_cursor_position here
+	 * triggers a blocking write every tick, stalling the PTY drain loop */
+	tframe->pending_cursor = pos;
 	return 1;
 }
 
@@ -198,7 +200,24 @@ static void sync_flush(TFrame *tframe) {
 }
 
 static int sync_timeout(Tickit *t, TickitEventFlags flags, void *info, void *user) {
-	sync_flush(user);
+	TFrame *tframe = user;
+	if (tframe->render_timer) {
+		tickit_watch_cancel(root.tickit, tframe->render_timer);
+		tframe->render_timer = NULL;
+	}
+	tickit_window_set_cursor_position(tframe->termwin,
+		tframe->pending_cursor.row, tframe->pending_cursor.col);
+	vterm_screen_flush_damage(tframe->vts);
+	sync_flush(tframe);
+	return 0;
+}
+
+static int render_later(Tickit *t, TickitEventFlags flags, void *info, void *user) {
+	TFrame *tframe = user;
+	tframe->render_timer = NULL;
+	tickit_window_set_cursor_position(tframe->termwin,
+		tframe->pending_cursor.row, tframe->pending_cursor.col);
+	vterm_screen_flush_damage(tframe->vts);
 	return 0;
 }
 
@@ -215,6 +234,13 @@ static int vts_fallback_csi(const char *leader, const long args[], int argcount,
 				tframe->sync_timer = tickit_watch_timer_after_msec(
 					root.tickit, 1000, 0, &sync_timeout, tframe);
 		} else if (command == 'l') {
+			if (tframe->render_timer) {
+				tickit_watch_cancel(root.tickit, tframe->render_timer);
+				tframe->render_timer = NULL;
+			}
+			tickit_window_set_cursor_position(tframe->termwin,
+				tframe->pending_cursor.row, tframe->pending_cursor.col);
+			vterm_screen_flush_damage(tframe->vts);
 			if (tframe->sync_timer) {
 				tickit_watch_cancel(root.tickit, tframe->sync_timer);
 				tframe->sync_timer = NULL;
@@ -365,8 +391,9 @@ static int pty_read(Tickit *t, TickitEventFlags flags, void *_info, void *data) 
 		got_data = true;
 	}
 
-	if (got_data)
-		vterm_screen_flush_damage(tframe->vts);
+	if (got_data && !tframe->render_timer)
+		tframe->render_timer = tickit_watch_timer_after_msec(
+			root.tickit, 16, 0, &render_later, tframe);
 
 	return 1;
 }
@@ -442,6 +469,8 @@ static void free_vterm(TFrame *tframe) {
 			free(tframe->sb_buffer[(tframe->sb_head + i) % config.scroll_history]);
 		free(tframe->sb_buffer);
 	}
+	if (tframe->render_timer)
+		tickit_watch_cancel(root.tickit, tframe->render_timer);
 	if (tframe->sync_timer)
 		tickit_watch_cancel(root.tickit, tframe->sync_timer);
 	if (tframe->watchio)

@@ -169,6 +169,8 @@ struct TFrame {
 	bool sync_has_damage;  /* damage accumulated during sync update */
 	TickitRect sync_rect;  /* accumulated damage rect during sync update */
 	void *sync_timer;      /* safety timeout handle, NULL if not armed */
+	void *render_timer;    /* deferred flush_damage timer, NULL if not armed */
+	VTermPos pending_cursor; /* cursor pos deferred until next render */
 };
 static TFrame *tframes = NULL; /* Doubly linked list of all tframes */
 static TFrame *stack = NULL;   /* Stack ordered linked list of all tframes */
