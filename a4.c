@@ -1942,6 +1942,8 @@ static void zoom(char *args[]) {
 
 	if (!sel)
 		return;
+	if (mwin.type == TERM || mwin.type == TBAR)
+		dofocus(mwin.tframe);
 	if (args && args[0] && (atol(args[0]) > 0))
 		focus(args);
 
