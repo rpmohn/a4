@@ -190,6 +190,7 @@ static MWin mwin;
 typedef enum { SEL_NONE = 0, SEL_ACTIVE } SelState;
 static struct {
 	SelState state;
+	bool block;
 	TFrame *tframe;
 	int start_row, start_col;
 	int end_row, end_col;
@@ -198,6 +199,7 @@ static struct {
 static struct {
 	TFrame *tframe;
 	int start_row, start_col;
+	bool block;
 } sel_pending;
 
 static bool double_click_pending = false;
@@ -753,6 +755,7 @@ static void selection_clear(void) {
 	if (selection.state != SEL_NONE && selection.tframe)
 		tickit_window_expose(selection.tframe->termwin, NULL);
 	selection.state = SEL_NONE;
+	selection.block = false;
 	selection.tframe = NULL;
 }
 
@@ -762,6 +765,12 @@ static bool selection_is_selected(TFrame *tframe, int row, int col) {
 
 	int sr = selection.start_row, sc = selection.start_col;
 	int er = selection.end_row, ec = selection.end_col;
+
+	if (selection.block) {
+		if (sr > er) { int t = sr; sr = er; er = t; }
+		if (sc > ec) { int t = sc; sc = ec; ec = t; }
+		return row >= sr && row <= er && col >= sc && col <= ec;
+	}
 
 	/* Normalize so sr/sc is before er/ec */
 	if (sr > er || (sr == er && sc > ec)) {
@@ -805,6 +814,47 @@ static char *selection_extract_text(void) {
 		return NULL;
 
 	size_t pos = 0;
+
+	if (selection.block) {
+		/* Rectangular block: same column range on every row, always newline-separated */
+		int clo = sc < ec ? sc : ec;
+		int chi = sc < ec ? ec : sc;
+		for (int row = sr; row <= er; row++) {
+			int vrow = row - tf->sb_offset;
+			int last_nonspace = -1;
+			for (int col = clo; col <= chi; ) {
+				VTermPos vpos = { .row = vrow, .col = col };
+				VTermScreenCell cell;
+				fetch_cell(tf, vpos, &cell);
+				if (cell.chars[0] != 0 && cell.chars[0] != ' ')
+					last_nonspace = col;
+				col += (cell.width > 0) ? cell.width : 1;
+			}
+			for (int col = clo; col <= chi && col <= last_nonspace; ) {
+				VTermPos vpos = { .row = vrow, .col = col };
+				VTermScreenCell cell;
+				fetch_cell(tf, vpos, &cell);
+				if (cell.chars[0] == 0) {
+					if (pos < bufsize - 1)
+						buf[pos++] = ' ';
+					col++;
+				} else {
+					for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; i++) {
+						char bytes[6];
+						int nbytes = fill_utf8(cell.chars[i], bytes);
+						for (int b = 0; b < nbytes && pos < bufsize - 1; b++)
+							buf[pos++] = bytes[b];
+					}
+					col += (cell.width > 0) ? cell.width : 1;
+				}
+			}
+			if (row < er && pos < bufsize - 1)
+				buf[pos++] = '\n';
+		}
+		buf[pos] = '\0';
+		return buf;
+	}
+
 	for (int row = sr; row <= er; row++) {
 		int col_start = (row == sr) ? sc : 0;
 		int col_end = (row == er) ? ec : maxcols - 1;
@@ -969,7 +1019,8 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 	 * focus and selection even in altscreen. */
 	bool altscreen_passthrough = false;
 	if (mw && mw->type == TERM && mw->tframe && mw->tframe->altscreen) {
-		bool ctrl_sel = (m->button == 1 && m->mod == TICKIT_MOD_CTRL);
+		bool ctrl_sel = (m->button == 1 && (m->mod == TICKIT_MOD_CTRL ||
+		                                     m->mod == (TICKIT_MOD_CTRL | TICKIT_MOD_ALT)));
 		bool sel_continuing = (m->button == 1 &&
 			((selection.state != SEL_NONE && selection.tframe == mw->tframe) ||
 			 sel_pending.tframe == mw->tframe));
@@ -1009,7 +1060,8 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 	 * the block regardless of which pane (or non-pane) the cursor is over.
 	 * Skipped for altscreen passthroughs — those go directly to curkeymouse. */
 	if ((!altscreen_passthrough && mw && mw->type == TERM && mw->tframe && m->button == 1 &&
-			(m->mod == 0 || m->mod == TICKIT_MOD_CTRL || sel_in_progress)) ||
+			(m->mod == 0 || m->mod == TICKIT_MOD_CTRL ||
+			 m->mod == (TICKIT_MOD_CTRL | TICKIT_MOD_ALT) || sel_in_progress)) ||
 			is_sel_drag) {
 		TFrame *tf = is_sel_drag ? sel_tf : mw->tframe;
 		int term_row = m->line - frame.rect.top - tf->rect.top - 1;
@@ -1024,7 +1076,8 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 		if (m->type == TICKIT_MOUSEEV_PRESS) {
 			selection_clear();
 			word_select_mode = false;
-			if (m->mod == 0 || m->mod == TICKIT_MOD_CTRL) {
+			if (m->mod == 0 || m->mod == TICKIT_MOD_CTRL ||
+			    m->mod == (TICKIT_MOD_CTRL | TICKIT_MOD_ALT)) {
 				dofocus(tf);
 				if (tf->minimized)
 					minimize(NULL);
@@ -1048,12 +1101,14 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 				sel_pending.tframe = tf;
 				sel_pending.start_row = term_row;
 				sel_pending.start_col = term_col;
+				sel_pending.block = (m->mod == (TICKIT_MOD_CTRL | TICKIT_MOD_ALT));
 			}
 		} else if (m->type == TICKIT_MOUSEEV_DRAG && sel_in_progress) {
 			if (sel_pending.tframe) {
 				selection.tframe = sel_pending.tframe;
 				selection.start_row = sel_pending.start_row;
 				selection.start_col = sel_pending.start_col;
+				selection.block = sel_pending.block;
 				sel_pending.tframe = NULL;
 			}
 			selection.state = SEL_ACTIVE;
