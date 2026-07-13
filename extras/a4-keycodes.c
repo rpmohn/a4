@@ -3,18 +3,59 @@
 #endif
 
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <tickit.h>
+
+/* Matches the a4 default dbl_click_ms */
+#define DBL_CLICK_MS 400
 
 TickitTerm *tt;
 char curkey[256];
 int line = 0;
 
+static int multi_click = 0; /* 0 = none, 2 = double pending, 3 = triple pending */
+static struct {
+	int button, line, col;
+	struct timespec time;
+} last_press;
+
+/* Mirror a4's multi-click detection so dbl-/tpl- names are discoverable */
+static void detect_multi_click(TickitMouseEventInfo *m) {
+	if (m->type != TICKIT_MOUSEEV_PRESS)
+		return;
+
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	long elapsed_ms = (now.tv_sec - last_press.time.tv_sec) * 1000 +
+	                  (now.tv_nsec - last_press.time.tv_nsec) / 1000000;
+	bool same_spot = m->button == last_press.button &&
+	                 m->line == last_press.line && m->col == last_press.col;
+	bool in_time = (last_press.time.tv_sec || last_press.time.tv_nsec) &&
+	               elapsed_ms < DBL_CLICK_MS;
+	if (multi_click == 2 && same_spot && in_time) {
+		multi_click = 3;
+		last_press.time = (struct timespec){0, 0};
+	} else if (multi_click != 2 && same_spot && in_time) {
+		multi_click = 2;
+		last_press.time = now;
+	} else {
+		multi_click = 0;
+		last_press.button = m->button;
+		last_press.line = m->line;
+		last_press.col = m->col;
+		last_press.time = now;
+	}
+}
+
 static void curkey_mouse(TickitMouseEventInfo *m) {
 	char *ck = curkey;
+
+	detect_multi_click(m);
 
 	ck += sprintf(ck, "%s%s%s",
 			(m->mod & TICKIT_MOD_ALT ? "M-" : ""),
@@ -23,16 +64,26 @@ static void curkey_mouse(TickitMouseEventInfo *m) {
 
 	switch(m->type) {
 		case TICKIT_MOUSEEV_WHEEL:
-			sprintf(ck, "wheel-%s", (m->button == TICKIT_MOUSEWHEEL_UP ? "up" : "dn"));
+			sprintf(ck, "wheel-%s",
+					m->button == TICKIT_MOUSEWHEEL_UP   ? "up" :
+					m->button == TICKIT_MOUSEWHEEL_DOWN ? "dn" :
+					m->button == TICKIT_MOUSEWHEEL_LEFT ? "left" : "right");
 			break;
 		case TICKIT_MOUSEEV_PRESS:
-			sprintf(ck, "press-%d", m->button);
+			sprintf(ck, multi_click == 3 ? "tpl-press-%d" :
+			            multi_click == 2 ? "dbl-press-%d" : "press-%d", m->button);
 			break;
 		case TICKIT_MOUSEEV_DRAG:
-			sprintf(ck, "drag-%d", m->button);
+			sprintf(ck, multi_click == 3 ? "tpl-drag-%d" :
+			            multi_click == 2 ? "dbl-drag-%d" : "drag-%d", m->button);
 			break;
 		case TICKIT_MOUSEEV_RELEASE:
-			sprintf(ck, "release-%d", m->button);
+			sprintf(ck, multi_click == 3 ? "tpl-release-%d" :
+			            multi_click == 2 ? "dbl-release-%d" : "release-%d", m->button);
+			/* Keep multi_click == 2 so a third press can promote to triple;
+			 * a completed triple ends the cycle. */
+			if (multi_click == 3)
+				multi_click = 0;
 			break;
 		case TICKIT_MOUSEEV_DRAG_START:
 		case TICKIT_MOUSEEV_DRAG_STOP:

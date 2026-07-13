@@ -73,6 +73,31 @@ Mouse wheel scrolled up.
 .TP
 .B wheel\-dn
 Mouse wheel scrolled down.
+.TP
+.B wheel\-left
+Mouse wheel scrolled left (tilt wheel or horizontal scroll gesture).
+.TP
+.B wheel\-right
+Mouse wheel scrolled right.
+.P
+A second press of the same button at the same position within the
+double-click interval (the
+.B dbl_click_ms
+setting in
+.BR a4.ini ,
+default 400ms;
+.B a4\-keycodes
+always uses 400ms) reports the
+.B dbl\-
+prefixed forms
+.BR dbl\-press\- n ,
+.BR dbl\-drag\- n ,
+and
+.BR dbl\-release\- n .
+A third press within the interval reports the
+.B tpl\-
+prefixed forms, e.g.\&
+.BR tpl\-press\- n .
 .P
 Modifier prefixes
 .BR M\- ,
@@ -81,6 +106,36 @@ and
 .B S\-
 may appear before mouse codes as well, e.g.\&
 .BR C\-press\-1 .
+.P
+In
+.B a4.ini
+the shorthand
+.BR click\- n
+(also
+.BR dbl\-click\- n
+and
+.BR tpl\-click\- n )
+binds the press and release of button
+.I n
+as a pair;
+.B a4\-keycodes
+reports the individual
+.BR press\- n
+and
+.BR release\- n
+events that make it up.
+.P
+Note that button\-1 codes with no modifier, with
+.BR C\- ,
+or with
+.B M\-C\-
+(including their
+.BR dbl\- / tpl\-
+forms) are reserved by
+.B a4
+for text selection in terminal windows and cannot be bound in the
+.B [MouseTermwinActions]
+section.
 .SH EXAMPLES
 To find the code for Ctrl\-PageDown, run
 .B a4\-keycodes
