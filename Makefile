@@ -92,7 +92,7 @@ distclean: clean
 		extras/a4-keycodes-x86_64-musl extras/a4-keycodes-arm64-musl extras/a4-keycodes-armv7-musl
 	rm -rf a4-$(VERSION)-*.tar.gz release
 
-#### inih library, commit d6e9d1b 20221202 https://github.com/benhoyt/inih.git ####
+#### inih library, commit 577ae2d 20260130 https://github.com/benhoyt/inih.git ####
 lib/inih/ini.o: lib/inih/ini.h
 
 #### unibilium library tag v2.0.0 commit e3b16d6 20180208 https://github.com/mauke/unibilium.git ####

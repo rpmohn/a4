@@ -933,26 +933,34 @@ static void create_startup(unsigned int *nbindings, KeyBinding **bindings, const
 
 static void expand_num_keybinding_action(Config *cfg, const char *kstr, const char *astr) {
 	char actionstr[MAX_STR];
-	char *n = strrchr(kstr, '#');
+	char kbuf[MAX_STR];
+	/* work on a copy; the inih handler contract forbids modifying name */
+	strncpy(kbuf, kstr, sizeof(kbuf) - 1);
+	kbuf[sizeof(kbuf) - 1] = '\0';
+	char *n = strrchr(kbuf, '#');
 	if (!n)
 		error("KeyBinding \"%s\" must include a '#' character for function \"%s\" to replace in configuration file", kstr, astr);
 	for (int i = 1; i <= 9; i++) {
 		n[0] = i + 48; // Convert number to character
 		snprintf(actionstr, sizeof(actionstr), "%s %d", astr, i);
-		create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, kstr, actionstr, BIND_VALIDATE_KB);
+		create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, kbuf, actionstr, BIND_VALIDATE_KB);
 	}
 }
 
 static void expand_tag_keybinding_action(Config *cfg, const char *kstr, const char *astr) {
 	char actionstr[MAX_STR];
-	char *n = strrchr(kstr, '#');
+	char kbuf[MAX_STR];
+	/* work on a copy; the inih handler contract forbids modifying name */
+	strncpy(kbuf, kstr, sizeof(kbuf) - 1);
+	kbuf[sizeof(kbuf) - 1] = '\0';
+	char *n = strrchr(kbuf, '#');
 	if (!n)
 		error("KeyBinding \"%s\" must include a '#' character for function \"%s\" to replace in configuration file", kstr, astr);
 	int max = MIN(cfg->ntags, 9);
 	for (int i = 0; i < max && cfg->tagnames[i]; i++) {
 		n[0] = i + 1 + 48; // Convert number to character
 		snprintf(actionstr, sizeof(actionstr), "%s %s", astr, cfg->tagnames[i]);
-		create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, kstr, actionstr, BIND_VALIDATE_KB);
+		create_binding(&cfg->nkb_bindings, &cfg->kb_bindings, kbuf, actionstr, BIND_VALIDATE_KB);
 	}
 }
 
