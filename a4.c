@@ -202,7 +202,7 @@ static struct {
 	bool block;
 } sel_pending;
 
-static bool double_click_pending = false;
+static int multi_click = 0; /* 0 = none, 2 = double pending, 3 = triple pending */
 static struct {
 	int button, line, col;
 	struct timespec time;
@@ -211,6 +211,7 @@ static struct {
 static bool altscreen_drag_active = false;
 static const char *pending_cwd = NULL;
 static bool word_select_mode = false;
+static bool line_select_mode = false;
 static struct {
 	int row, start_col, end_col;
 } word_anchor;
@@ -422,15 +423,20 @@ static void curkeymouse(TickitMouseEventInfo *m) {
 			snprintf(s, remaining, "wheel-%s", (m->button == TICKIT_MOUSEWHEEL_UP ? "up" : "dn"));
 			break;
 		case TICKIT_MOUSEEV_PRESS:
-			snprintf(s, remaining, double_click_pending ? "dbl-press-%d" : "press-%d", m->button);
+			snprintf(s, remaining, multi_click == 3 ? "tpl-press-%d" :
+			                       multi_click == 2 ? "dbl-press-%d" : "press-%d", m->button);
 			break;
 		case TICKIT_MOUSEEV_DRAG:
-			snprintf(s, remaining, double_click_pending ? "dbl-drag-%d" : "drag-%d", m->button);
+			snprintf(s, remaining, multi_click == 3 ? "tpl-drag-%d" :
+			                       multi_click == 2 ? "dbl-drag-%d" : "drag-%d", m->button);
 			break;
 		case TICKIT_MOUSEEV_RELEASE:
-			if (double_click_pending) {
+			if (multi_click == 3) {
+				snprintf(s, remaining, "tpl-release-%d", m->button);
+				multi_click = 0;
+			} else if (multi_click == 2) {
 				snprintf(s, remaining, "dbl-release-%d", m->button);
-				double_click_pending = false;
+				multi_click = 0;
 			} else {
 				snprintf(s, remaining, "release-%d", m->button);
 			}
@@ -1076,13 +1082,26 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 		if (m->type == TICKIT_MOUSEEV_PRESS) {
 			selection_clear();
 			word_select_mode = false;
+			line_select_mode = false;
 			if (m->mod == 0 || m->mod == TICKIT_MOD_CTRL ||
 			    m->mod == (TICKIT_MOD_CTRL | TICKIT_MOD_ALT)) {
 				dofocus(tf);
 				if (tf->minimized)
 					minimize(NULL);
 			}
-			if (double_click_pending) {
+			if (multi_click == 3) {
+				word_anchor.row = term_row;
+				line_select_mode = true;
+				selection.tframe = tf;
+				selection.block = false;
+				selection.start_row = term_row;
+				selection.start_col = 0;
+				selection.end_row = term_row;
+				selection.end_col = tf->termrect.cols - 1;
+				selection.state = SEL_ACTIVE;
+				tickit_window_expose(tf->termwin, NULL);
+				tickit_window_expose(sbar.win, NULL);
+			} else if (multi_click == 2) {
 				int wstart, wend;
 				find_word_boundary(tf, term_row, term_col, &wstart, &wend);
 				word_anchor.row = term_row;
@@ -1113,7 +1132,14 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 				sel_pending.tframe = NULL;
 			}
 			selection.state = SEL_ACTIVE;
-			if (word_select_mode) {
+			if (line_select_mode) {
+				int anchor = word_anchor.row;
+				selection.start_row = anchor < term_row ? anchor : term_row;
+				selection.start_col = 0;
+				selection.end_row   = anchor < term_row ? term_row : anchor;
+				selection.end_col   = tf->termrect.cols - 1;
+				selection.tframe    = tf;
+			} else if (word_select_mode) {
 				int wstart, wend;
 				find_word_boundary(tf, term_row, term_col, &wstart, &wend);
 				if (selection.block) {
@@ -1162,6 +1188,7 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 			}
 			selection_clear();
 			word_select_mode = false;
+			line_select_mode = false;
 			curkeys_index = 0;
 			memset(curkeys, 0, sizeof(curkeys));
 			mwin.type = NONE;
@@ -1169,6 +1196,7 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 		} else if (m->type == TICKIT_MOUSEEV_RELEASE && sel_pending.tframe) {
 			sel_pending.tframe = NULL;
 			word_select_mode = false;
+			line_select_mode = false;
 			/* Unmodified or Ctrl click-1: focus already fired on press; consume the
 			 * release so INI bindings cannot override the hardcoded behavior. */
 			if (m->mod == 0 || m->mod == TICKIT_MOD_CTRL)
@@ -1178,6 +1206,7 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 		/* Any other event clears selection and pending */
 		sel_pending.tframe = NULL;
 		word_select_mode = false;
+		line_select_mode = false;
 		selection_clear();
 	}
 
@@ -1202,17 +1231,22 @@ static int mouse_rootwin(TickitWindow *win, TickitEventFlags flags, void *_info,
 		clock_gettime(CLOCK_MONOTONIC, &now);
 		long elapsed_ms = (now.tv_sec - last_press.time.tv_sec) * 1000 +
 		                  (now.tv_nsec - last_press.time.tv_nsec) / 1000000;
-		bool is_dbl = (last_press.time.tv_sec || last_press.time.tv_nsec) &&
-		              m->button == last_press.button &&
-		              m->line == last_press.line && m->col == last_press.col &&
-		              elapsed_ms < config.dbl_click_ms;
-		if (is_dbl) {
-			double_click_pending = true;
+		bool same_spot = m->button == last_press.button &&
+		                 m->line == last_press.line && m->col == last_press.col;
+		bool in_time = (last_press.time.tv_sec || last_press.time.tv_nsec) &&
+		               elapsed_ms < config.dbl_click_ms;
+		if (multi_click == 2 && same_spot && in_time) {
+			multi_click = 3;
 			curkeys_index = 0;
 			memset(curkeys, 0, sizeof(curkeys));
 			last_press.time = (struct timespec){0, 0};
+		} else if (multi_click != 2 && same_spot && in_time) {
+			multi_click = 2;
+			curkeys_index = 0;
+			memset(curkeys, 0, sizeof(curkeys));
+			last_press.time = now;
 		} else {
-			double_click_pending = false;
+			multi_click = 0;
 			last_press.button = m->button;
 			last_press.line = m->line;
 			last_press.col = m->col;
