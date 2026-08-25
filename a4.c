@@ -1210,8 +1210,10 @@ static bool mouse_selection(TickitMouseEventInfo *m, MWin *mw) {
 			line_select_mode = false;
 			/* Unmodified or Ctrl click-1: focus already fired on press; consume the
 			 * release so INI bindings cannot override the hardcoded behavior. */
-			if (m->mod == 0 || m->mod == TICKIT_MOD_CTRL)
+			if (m->mod == 0 || m->mod == TICKIT_MOD_CTRL) {
+				mwin.type = NONE;
 				return true;
+			}
 		}
 	} else if (selection.state != SEL_NONE || sel_pending.tframe != NULL) {
 		/* Any other event clears selection and pending */
