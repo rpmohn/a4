@@ -1933,12 +1933,14 @@ static void focus(char *args[]) {
 		if (lastsel)
 			dofocus(lastsel);
 	} else if (ARGS0EQ("group")) {
-		sel->groupedfocus = !sel->groupedfocus;
+		TFrame *target = (mwin.type == TERM || mwin.type == TBAR) ? mwin.tframe : sel;
+		target->groupedfocus = !target->groupedfocus;
 		expose_all_tbars();
 	} else if (ARGS0EQ("groupall") || ARGS0EQ("0")) {
-		sel->groupedfocus = !sel->groupedfocus;
+		TFrame *target = (mwin.type == TERM || mwin.type == TBAR) ? mwin.tframe : sel;
+		target->groupedfocus = !target->groupedfocus;
 		for (TFrame *tframe = nextvisible(tframes); tframe; tframe = nextvisible(tframe->next)) {
-			tframe->groupedfocus = sel->groupedfocus;
+			tframe->groupedfocus = target->groupedfocus;
 			tickit_window_expose(tframe->tbar, NULL);
 		}
 		expose_all_tbars();
