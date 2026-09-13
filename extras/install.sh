@@ -9,17 +9,25 @@ fi
 PKG="a4"
 VER="VERSION"
 
-# Detect architecture
-case "$(uname -m)" in
-    x86_64)  ARCH="x86_64" ;;
-    aarch64) ARCH="arm64" ;;
-    armv7l|armv6l) ARCH="armv7" ;;
-    *) echo "Unsupported architecture, $(uname -m), please submit an issue"; exit 1 ;;
-esac
+# Detect OS and architecture
+if [ "$(uname -s)" = Darwin ]; then
+    case "$(uname -m)" in
+        arm64)  ARCH="macos-arm64" ;;
+        x86_64) ARCH="macos-x86_64" ;;
+        *) echo "Unsupported architecture, $(uname -m), please submit an issue"; exit 1 ;;
+    esac
+else
+    case "$(uname -m)" in
+        x86_64)  ARCH="x86_64" ;;
+        aarch64) ARCH="arm64" ;;
+        armv7l|armv6l) ARCH="armv7" ;;
+        *) echo "Unsupported architecture, $(uname -m), please submit an issue"; exit 1 ;;
+    esac
 
-# Detect musl libc
-if ldd /bin/sh 2>&1 | grep -qi musl; then
-    ARCH="$ARCH-musl"
+    # Detect musl libc
+    if ldd /bin/sh 2>&1 | grep -qi musl; then
+        ARCH="$ARCH-musl"
+    fi
 fi
 
 SRC="https://github.com/rpmohn/$PKG/releases/download/$VER/$PKG-$VER-$ARCH.tar.gz"

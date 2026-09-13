@@ -4,7 +4,7 @@
 .SUFFIXES: .c .o
 .c.o:
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
-.PHONY: all debug portable portable-arch release clean distclean install uninstall
+.PHONY: all debug portable portable-musl portable-macos portable-arch release clean distclean install uninstall
 
 PREFIX		= /usr/local
 MANPREFIX	= $(PREFIX)/share/man
@@ -13,12 +13,15 @@ DOCDIR		= $(PREFIX)/share/doc
 
 VERSION		!= git describe --always --dirty 2>/dev/null || echo "v2.0"
 
-CPPFLAGS	= -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -D_XOPEN_SOURCE_EXTENDED \
+# On Darwin: expose BSD symbols (forkpty) despite strict POSIX macros, and
+# skip -lutil (forkpty is in libSystem there)
+OS_CPPFLAGS	!= [ "`uname`" = Darwin ] && echo '-D_DARWIN_C_SOURCE'
+CPPFLAGS	= -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -D_XOPEN_SOURCE_EXTENDED $(OS_CPPFLAGS) \
 			  -DNDEBUG -DSYSCONFDIR='"$(SYSCONFDIR)"' $(CPPFLGS) -DVERSION='"$(VERSION)"' \
 			  $(unibilium_flags) $(termkey_flags) $(tickit_flags) $(vterm_flags)
 CFLAGS		= -std=c99 -Wall
 DEBUG		= -UNDEBUG -O0 -g -ggdb -Wextra -Wno-unused-parameter -fdiagnostics-color=always
-LDLIBS		= -lutil
+LDLIBS		!= [ "`uname`" = Darwin ] || echo '-lutil'
 
 a4_obj		= a4.o session.o
 inih_obj	= lib/inih/ini.o
@@ -59,6 +62,16 @@ portable-musl: distclean
 	@$(MAKE) portable-arch ARCH=arm64-musl ZIG_TARGET=aarch64-linux-musl LDLIBS=
 	@$(MAKE) portable-arch ARCH=armv7-musl ZIG_TARGET=arm-linux-musleabihf LDLIBS=
 
+# Experimental macOS (Darwin) cross-builds via zig. zig ships libSystem
+# stubs (forkpty exported there, so LDLIBS is empty) but a minimal header set
+# without <util.h>; the vt.c/session.c __has_include shims cover that. The
+# Makefile's uname-based OS_CPPFLAGS evaluates on the Linux build host, so
+# -D_DARWIN_C_SOURCE must be forced via CPPFLGS. zig ad-hoc signs the arm64
+# output automatically (required to run on Apple Silicon).
+portable-macos: distclean
+	@$(MAKE) portable-arch ARCH=macos-arm64 ZIG_TARGET=aarch64-macos LDLIBS= CPPFLGS=-D_DARWIN_C_SOURCE
+	@$(MAKE) portable-arch ARCH=macos-x86_64 ZIG_TARGET=x86_64-macos LDLIBS= CPPFLGS=-D_DARWIN_C_SOURCE
+
 portable-arch:
 	@$(MAKE) CC='zig cc -target $(ZIG_TARGET)' LDLIBS='$(LDLIBS)' a4
 	mv a4 a4-$(ARCH)
@@ -66,9 +79,9 @@ portable-arch:
 	mv extras/a4-keycodes extras/a4-keycodes-$(ARCH)
 	rm -f $(obj)
 
-release: portable portable-musl
+release: portable portable-musl portable-macos
 	rm -rf release && mkdir -p release
-	for arch in x86_64 arm64 armv7 x86_64-musl arm64-musl armv7-musl; do \
+	for arch in x86_64 arm64 armv7 x86_64-musl arm64-musl armv7-musl macos-arm64 macos-x86_64; do \
 		rm -rf a4-$(VERSION)-$$arch && mkdir -p a4-$(VERSION)-$$arch; \
 		cp -p a4-$$arch a4-$(VERSION)-$$arch/a4; \
 		cp -p extras/a4-keycodes-$$arch a4-$(VERSION)-$$arch/a4-keycodes; \
@@ -87,9 +100,12 @@ clean:
 
 distclean: clean
 	rm -f $(obj)
-	rm -f a4-x86_64 a4-arm64 a4-armv7 a4-x86_64-musl a4-arm64-musl a4-armv7-musl \
+	rm -f a4-x86_64 a4-arm64 a4-armv7 \
+		a4-x86_64-musl a4-arm64-musl a4-armv7-musl \
+		a4-macos-arm64 a4-macos-x86_64 \
 		extras/a4-keycodes-x86_64 extras/a4-keycodes-arm64 extras/a4-keycodes-armv7 \
-		extras/a4-keycodes-x86_64-musl extras/a4-keycodes-arm64-musl extras/a4-keycodes-armv7-musl
+		extras/a4-keycodes-x86_64-musl extras/a4-keycodes-arm64-musl extras/a4-keycodes-armv7-musl \
+		extras/a4-keycodes-macos-arm64 extras/a4-keycodes-macos-x86_64
 	rm -rf a4-$(VERSION)-*.tar.gz release
 
 #### inih library, commit 577ae2d 20260130 https://github.com/benhoyt/inih.git ####

@@ -1,4 +1,18 @@
+#if defined(__linux__) || defined(__CYGWIN__)
 #include <pty.h>
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+#include <libutil.h>
+#elif defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__)
+#if defined(__has_include) && !__has_include(<util.h>)
+/* cross-compiling with minimal darwin headers (e.g. zig cc): forkpty is
+ * exported by libSystem but util.h is not shipped, so declare it directly */
+#include <sys/ioctl.h>
+#include <termios.h>
+pid_t forkpty(int *, char *, struct termios *, struct winsize *);
+#else
+#include <util.h>
+#endif
+#endif
 
 #define TickitRect_from_VTermRect(v)      \
 	{                                     \

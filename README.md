@@ -47,35 +47,10 @@ and session management.
 
 ![parts of the screen](extras/partsofscreen.png)
 
-<!--
-## Distribution Packages
-
-#### [Void Linux]
-
-Install using the xbps package manager
-
-```sh
-sudo xbps-install -S a4
-```
-
-#### [Nix]
-
-Install using `nix-env`
-
-``` sh
-nix-env -iA nixos.a4term # change `nixos` for `nixpkgs`, if on a non-NixOS system
-```
-
-Try it with `nix-shell`
-
-``` sh
-nix-shell -p a4term
-```
--->
-
 ## a4 Compile and Install
 
-It is best to compile the code yourself, if possible. If you don't have that
+It is best to compile the code yourself, if possible. (_NOTE: for macOS see
+below._) If you don't have that
 capability on your system there are two installation scripts available in
 [releases] that easily installs pre-compiled binaries for your machine
 architecture (`uname -m`). One script, `install.sh`, installs a4 for all users
@@ -131,6 +106,37 @@ run the following command to put a local, patched copy of the file in
 place for your login account:
 ```sh
 infocmp xterm-256color | sed -E 's/(kmous=\\E\[)</\1M/' | tic -o ~/.terminfo -
+```
+
+### macOS (Experimental)
+
+macOS builds are experimental. There are binaries available for Apple Silicon
+(arm64) and Intel (x86_64). Neither binary is notarized. Please provide
+feedback and issue reports.
+
+The install scripts detect macOS automatically and pull the correct binary,
+so Options 2 and 3 above work unchanged:
+
+```
+# Install pre-compiled binary for yourself (Apple Silicon or Intel)
+curl -fsSL https://github.com/rpmohn/a4/releases/latest/download/install-local.sh | bash
+```
+
+If you instead download a release tarball manually through a browser, macOS
+tags it with a quarantine attribute and Gatekeeper will refuse to run it.
+Clear the attribute (the install scripts avoid this by fetching with `curl`):
+
+```sh
+xattr -d com.apple.quarantine ./a4
+```
+
+To compile from source on macOS, install the Xcode Command Line Tools and GNU
+make (the build uses features stock `make` 3.81 lacks):
+
+```sh
+xcode-select --install
+brew install make
+gmake && sudo gmake install
 ```
 
 ## Documentation
