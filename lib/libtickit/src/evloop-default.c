@@ -64,6 +64,10 @@ static void dispatch_signals(EventLoopData *evdata)
     sigset_t block;
 #if HAVE_PPOLL
     block = evdata->watched_signals;
+#else
+    /* no watched_signals set without ppoll; block everything while
+     * snapshotting so the handler can't race */
+    sigfillset(&block);
 #endif
     sigprocmask(SIG_BLOCK, &block, &orig);
 
