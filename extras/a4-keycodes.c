@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -17,6 +18,7 @@
 TickitTerm *tt;
 char curkey[256];
 int line = 0;
+const char *a4_env = NULL;  /* set to the A4 version when running inside a4 */
 
 static int multi_click = 0; /* 0 = none, 2 = double pending, 3 = triple pending */
 static struct {
@@ -129,6 +131,14 @@ static int render_root(TickitWindow *win, TickitEventFlags flags, void *_info, v
 	TickitRect rect = info->rect;
 	TickitRenderBuffer *rb = info->rb;
 
+	static bool warned = false;
+	if (!warned && a4_env) {
+		warned = true;
+		tickit_renderbuffer_textf_at(rb, line++, 0, "WARNING: running inside a4 (A4=%s)", a4_env);
+		tickit_renderbuffer_textf_at(rb, line++, 0, "a4 intercepts many keyboard and mouse events, so some keycodes will be missing here.");
+		tickit_renderbuffer_textf_at(rb, line++, 0, "Detach (default C-\\) or use a plain terminal for complete results.");
+	}
+
 	if (strlen(curkey) == 0)
 		return 1;
 
@@ -150,6 +160,11 @@ static int event_resize(TickitWindow *root, TickitEventFlags flags, void *_info,
 
 int main(int argc, char *argv[])
 {
+	/* a4 sets A4 (to its version) for the shells in its terminal windows and
+	 * intercepts chord prefixes and mouse actions, so some keycodes captured
+	 * here will be missing. Warn (rendered at startup by render_root) but run. */
+	a4_env = getenv("A4");
+
 	Tickit *t = tickit_new_stdtty();
 	tickit_setctl_int(t, TICKIT_CTL_USE_ALTSCREEN, 0);
 	tt = tickit_get_term(t);
