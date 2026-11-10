@@ -421,6 +421,11 @@ static bool setctl_int(TickitTermDriver *ttd, TickitTermCtl ctl, int value)
       // calling program) has a better idea than our probing via DECRQSS
       xd->cap.rgb8 = !!value;
       return true;
+    case TERMCTL_CAP_CSI_SUB_COLON:
+      // Allow forcing colon sub-param separator on/off, for callers that
+      // bypass the DECRQSS probe that would otherwise set it
+      xd->cap.csi_sub_colon = !!value;
+      return true;
   }
 
   switch(ctl) {
