@@ -1339,9 +1339,17 @@ static void create_rootwin(void) {
 	tickit_term_set_utf8(root.tt, true);
 	tickit_term_setctl_str(root.tt, TICKIT_TERMCTL_ICONTITLE_TEXT, application_name);
 
+	/* When the terminal declares truecolor, trust it to also understand the
+	 * ITU colon sub-parameter separator: force rgb8 (24-bit colour) and the
+	 * colon separator so sub-params — truecolor and curly/double underline
+	 * (e.g. SGR 4:3) — are emitted with ':' rather than ';'. a4 bypasses
+	 * libtickit's DECRQSS auto-probe, which would otherwise set these; both
+	 * setctls are no-ops unless the xterm driver is active. */
 	const char *colorterm = getenv("COLORTERM");
-	if (colorterm && (strstr(colorterm, "truecolor") || strstr(colorterm, "24bit")))
+	if (colorterm && (strstr(colorterm, "truecolor") || strstr(colorterm, "24bit"))) {
 		tickit_term_setctl_int(root.tt, tickit_termctl_lookup("xterm.cap_rgb8"), 1);
+		tickit_term_setctl_int(root.tt, tickit_termctl_lookup("xterm.cap_csi_sub_colon"), 1);
+	}
 }
 
 static void destroy_rootwin(void) {
