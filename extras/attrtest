@@ -115,15 +115,25 @@ function print_rgb8_stripe {
 }
 
 function print_attrs {
-    printf "\e[1mbold	\e[3mand italic\e[0m	"
-    printf "\e[3mitalic	\e[9mand strike\e[0m	"
-    printf "\e[9mstrike	\e[4mand under\e[0m\n"
+    printf "\e[1mbold\t\e[3mand italic\e[0m\t"
+    printf "\e[3mitalic\t\e[9mand strike\e[0m\t"
+    printf "\e[9mstrike\t\e[4mand under\e[0m\t"
+    printf "\n\n"
 
-    printf "\e[4munder	\e[7mand reverse\e[0m	"
-    printf "\e[7mreverse	\e[21mand double\e[0m	"
-    printf "\e[21mdouble	\e[5mand blink\e[0m\n"
+    printf "\e[4:1m4:1 single\e[0m\t"
+    printf "\e[4:2m4:2 double\e[0m\t"
+    printf "\e[4:3m4:3 curly underline\e[0m\t"
+    #printf "\e[4:4m4:4 dotted\e[0m\t"
+    #printf "\e[4:5m4:5 dashed\e[0m\t"
+    printf "\n\n"
 
-    printf "\e[1m\e[3m\e[9mbold italic strike\e[0m\n"
+    printf "\e[4munder\t\e[7mand reverse\e[0m\t"
+    printf "\e[7mreverse\t\e[21mand double\e[0m\t"
+    printf "\e[21mdouble\t\e[5mand blink\e[0m\t"
+    printf "\n\n"
+
+    printf "\e[1m\e[3m\e[9mbold italic strike\e[0m\t"
+    printf "\n\n"
 }
 
 while getopts ":bcgsa" o; do
