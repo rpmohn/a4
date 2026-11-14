@@ -77,6 +77,16 @@ curl -fsSL https://github.com/rpmohn/a4/releases/latest/download/install-local.s
 
 ## Notes
 
+### Terminal Requirements
+
+a4 requires an xterm-compatible terminal. It always drives the terminal with
+xterm escape sequences regardless of `TERM`, so any modern terminal emulator
+works. Set `COLORTERM=truecolor` (or `24bit`) in the underlying terminal for
+24-bit color; otherwise a4 falls back to the 256-color palette. The Linux
+console and other non-xterm terminals do work but are supported on a
+best-effort basis only (reduced color, no mouse, and no alternate-screen
+restore on exit).
+
 ### Copy Mode
 
 Copy mode (`Ctrl-g e`) opens the scrollback buffer and current screen contents

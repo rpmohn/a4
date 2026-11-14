@@ -725,16 +725,37 @@ Set to the session name when running inside a session. Prevents a nested
 started from a startup command from recursively re-attaching to the same session.
 .TP
 .B TERM
-In general, just use whatever the underlying terminal defaults to for this
-variable. If there's any question, use
-.BR xterm\-256color .
+.B a4
+always emits xterm\-style escape sequences and selects libtickit's xterm output
+driver internally.
+The value of 
+.B TERM
+you run
+.B a4
+under no longer affects
+.BR a4 's
+own rendering, but
+.B a4
+does require an xterm\-compatible terminal. Any modern terminal emulator
+will work. Programs started inside
+.B a4
+inherit your real
+.B TERM
+for their own use. A non\-xterm console, such as the Linux console works and
+is supported on a best\-effort basis.
 .TP
 .B COLORTERM
-If you're not seeing 24\-bit truecolor, set this variable to
+Selects
+.BR a4 's
+color depth. When set to
 .B 24bit
 or
 .B truecolor
-in the underlying terminal and restart
+in the underlying terminal,
+.B a4
+emits 24\-bit truecolor (and colon\-separated styles such as curly underline);
+otherwise it uses the 256\-color palette. If you're not seeing truecolor, set
+this variable and restart
 .BR a4 .
 .TP
 .B EDITOR
@@ -783,6 +804,14 @@ One socket file exists per active session; use
 .B a4 \-l
 to list all active sessions on the current host.
 .SH NOTES
+.B a4
+requires an xterm\-compatible terminal. It always drives the terminal with
+xterm escape sequences regardless of
+.BR TERM ,
+so any modern terminal emulator works. The Linux console and other
+non\-xterm terminals do work but are supported best\-effort only: expect reduced color, no
+mouse, and no alternate\-screen restore on exit.
+.P
 There's a configuration error in the
 .B xterm-256color
 file installed by some Linux distros that causes the mouse to behave incorrectly by printing characters to the terminal.

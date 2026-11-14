@@ -1317,7 +1317,25 @@ static int sigwinch_rootwin(Tickit *t, TickitEventFlags flags, void *info, void 
 }
 
 static void create_rootwin(void) {
+	/* a4 always emits xterm-style escape sequences, so pin libtickit's output
+	 * driver and its key decoder to xterm regardless of the inherited TERM.
+	 * Override TERM for that call and restore it immediately, before any child
+	 * shell is forked, so children still inherit the real TERM. a4 now
+	 * requires an xterm-compatible terminal and a non-xterm console like the
+	 * Linux text console do work but are best-effort only. */
+	char *real_term = getenv("TERM");
+	if (real_term)
+		real_term = strdup(real_term);
+	setenv("TERM", "xterm-256color", 1);
+
 	root.tickit = tickit_new_stdio();
+
+	if (real_term) {
+		setenv("TERM", real_term, 1);
+		free(real_term);
+	} else {
+		unsetenv("TERM");
+	}
 
 	root.win = tickit_get_rootwin(root.tickit);
 	if (!root.win) {
