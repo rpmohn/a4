@@ -158,6 +158,9 @@ static char *get_colorvalue(Pair *colornames, const char *key) {
 	return NULL;
 }
 
+static int v_to_cube(const int v) {
+	return v < 48 ? 0 : v < 115 ? 1 : (v - 35) / 40;
+}
 static int rgb_to_idx(const int r, const int g, const int b) {
 	/* see lookup_colour_palette() in libvterm/src/pen.c */
 	/* good enough grayscale ramp black to white: 16, 232-255, 231 */
@@ -169,8 +172,8 @@ static int rgb_to_idx(const int r, const int g, const int b) {
 
 		return 232 + ((r - 6) / 10); /* truncation through integer division */
 	}
-	/* good enough 6 x 6 x 6 RGB color cube: 16-231 */
-	return 16 + (36 * (r / 51)) + (6 * (g / 51)) + (b / 51); /* truncation through integer division */
+	/* 6 x 6 x 6 RGB color cube: 16-231, nearest level per channel */
+	return 16 + (36 * v_to_cube(r)) + (6 * v_to_cube(g)) + v_to_cube(b);
 }
 
 static void hex_to_tickit_pen(TickitPen *pen, TickitPenAttr attr, int32_t num) {
