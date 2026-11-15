@@ -248,11 +248,15 @@ static bool chpen(TickitTermDriver *ttd, const TickitPen *delta, const TickitPen
       if(val < 0)
         params[pindex++] = onoff->off;
       else if(xd->cap.rgb8 && tickit_pen_has_colour_attr_rgb8(delta, attr)) {
+        /* Emit 24-bit colour as separate ';'-joined params (38;2;r;g;b), the
+         * universally supported form. The ITU ':' sub-param form (38:2:r:g:b)
+         * is mishandled by some truecolor terminals, such as Microsoft
+         * Terminal, so only use for underline styles. */
         TickitPenRGB8 rgb = tickit_pen_get_colour_attr_rgb8(delta, attr);
-        params[pindex++] = (onoff->on+8) | CSI_MORE_SUBPARAM;
-        params[pindex++] = 2             | CSI_MORE_SUBPARAM;
-        params[pindex++] = rgb.r         | CSI_MORE_SUBPARAM;
-        params[pindex++] = rgb.g         | CSI_MORE_SUBPARAM;
+        params[pindex++] = onoff->on+8;
+        params[pindex++] = 2;
+        params[pindex++] = rgb.r;
+        params[pindex++] = rgb.g;
         params[pindex++] = rgb.b;
       }
       else if(val < 8)
@@ -260,8 +264,9 @@ static bool chpen(TickitTermDriver *ttd, const TickitPen *delta, const TickitPen
       else if(val < 16)
         params[pindex++] = onoff->on+60 + val-8;
       else {
-        params[pindex++] = (onoff->on+8) | CSI_MORE_SUBPARAM;
-        params[pindex++] = 5 | CSI_MORE_SUBPARAM;
+        /* 256-colour index, likewise emitted as ';' joined params (38;5;n) */
+        params[pindex++] = onoff->on+8;
+        params[pindex++] = 5;
         params[pindex++] = val;
       }
       break;
