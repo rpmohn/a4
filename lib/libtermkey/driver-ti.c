@@ -266,6 +266,12 @@ static bool try_load_terminfo_key(TermKeyTI *ti, const char *name, struct keyinf
   if(!value || value == (char*)-1 || !value[0])
     return false;
 
+  /* Some terminfos set key_mouse to the SGR 1006 CSI introducer "\e[<"
+   * (e.g. xterm-256color). Leave it unregistered and let the CSI driver's
+   * handle_csi_m decode SGR mouse. */
+  if(info->type == TERMKEY_TYPE_MOUSE && strcmp(value, "\033[<") == 0)
+    return false;
+
   struct trie_node *node = new_node_key(info->type, info->sym, info->modifier_mask, info->modifier_set);
   insert_seq(ti, value, node);
 
