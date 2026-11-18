@@ -428,10 +428,16 @@ static pid_t vt_forkpty(TFrame *tframe, const char *p, const char *argv[], const
 		sigemptyset(&emptyset);
 		sigprocmask(SIG_SETMASK, &emptyset, NULL);
 
+		/* Close every fd above stderr so neither this child nor the program it
+		 * exec's inherits a4's pty masters, session socket, signal pipe, etc.
+		 * The fd table has gaps (closing a window leaves a hole), so we must
+		 * NOT stop at the first already-closed fd: breaking there leaks every
+		 * fd above the hole into the spawned process. */
 		int maxfd = sysconf(_SC_OPEN_MAX);
+		if (maxfd < 0)
+			maxfd = 1024; /* _SC_OPEN_MAX indeterminate; fall back to a sane cap */
 		for (int fd = 3; fd < maxfd; fd++)
-			if (close(fd) == -1 && errno == EBADF)
-				break;
+			close(fd);
 
 		if (pending_cwd)
 			chdir(pending_cwd);
@@ -448,7 +454,7 @@ static pid_t vt_forkpty(TFrame *tframe, const char *p, const char *argv[], const
 
 		execvp(p, (char *const *)argv);
 		fprintf(stderr, "\nexecv() failed.\nCommand: '%s'\n", argv[0]);
-		exit(1);
+		_exit(1); /* after fork, before a successful exec: skip atexit/stdio */
 	}
 
 	return pid;
