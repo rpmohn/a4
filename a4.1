@@ -346,7 +346,7 @@ below for the location of configuration files.
 A typical user configuration file is located at
 .BR $HOME/.config/a4/a4.ini .
 The first line is often
-.B include = /usr/local/share/a4/a4.ini
+.B include = @SYSCONFDIR@/a4/a4.ini
 and then the following lines are the user's preferred override settings.
 Several configuration settings may be cleared out and reset by setting them equal to blank, including
 .BR """startup =""" " and " """statusbar_cmd =""" .
@@ -774,11 +774,11 @@ during initial startup. The location of the user's default file is
 which is usually
 .B $HOME/.config/a4/a4.ini
 and the system default file is
-.BR /usr/local/share/a4/a4.ini .
+.BR @SYSCONFDIR@/a4/a4.ini .
 .TP
 .B *.ini
 There are additional, partial configuration files provided in the
-.B /usr/local/share/a4/
+.B @SYSCONFDIR@/a4/
 directory, which may be included in a user's own
 .B a4.ini
 file. For example,

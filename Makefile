@@ -86,7 +86,7 @@ release: portable portable-musl portable-macos
 		cp -p a4-$$arch a4-$(VERSION)-$$arch/a4; \
 		cp -p extras/a4-keycodes-$$arch a4-$(VERSION)-$$arch/a4-keycodes; \
 		cp -p etc/*.ini a4-$(VERSION)-$$arch/; \
-		sed "s/VERSION/$(VERSION)/g" < a4.1 > a4-$(VERSION)-$$arch/a4.1; \
+		sed -e "s/VERSION/$(VERSION)/g" -e "s|@SYSCONFDIR@|$(SYSCONFDIR)|g" < a4.1 > a4-$(VERSION)-$$arch/a4.1; \
 		sed "s/VERSION/$(VERSION)/g" < extras/a4-keycodes.1 > a4-$(VERSION)-$$arch/a4-keycodes.1; \
 		tar -czvf release/a4-$(VERSION)-$$arch.tar.gz --owner=0 --group=0 a4-$(VERSION)-$$arch; \
 		rm -rf a4-$(VERSION)-$$arch; \
@@ -184,7 +184,7 @@ install: all
 	cp -f etc/*.ini $(DESTDIR)$(SYSCONFDIR)/a4
 	chmod 644 $(DESTDIR)$(SYSCONFDIR)/a4/*.ini
 	mkdir -p $(DESTDIR)$(MANPREFIX)/man1
-	sed "s/VERSION/$(VERSION)/g" < a4.1 > $(DESTDIR)$(MANPREFIX)/man1/a4.1
+	sed -e "s/VERSION/$(VERSION)/g" -e "s|@SYSCONFDIR@|$(SYSCONFDIR)|g" < a4.1 > $(DESTDIR)$(MANPREFIX)/man1/a4.1
 	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/a4.1
 	sed "s/VERSION/$(VERSION)/g" < extras/a4-keycodes.1 > $(DESTDIR)$(MANPREFIX)/man1/a4-keycodes.1
 	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/a4-keycodes.1
